@@ -96,10 +96,7 @@ import {
   useSource,
   useSources,
 } from '@/source';
-import {
-  useNewTimeQuery,
-  dateRangeToString,
-} from '@/timeQuery';
+import { useNewTimeQuery, dateRangeToString } from '@/timeQuery';
 import { QUERY_LOCAL_STORAGE, useLocalStorage, usePrevious } from '@/utils';
 import { useAuthEmails } from '@/hooks/useAuthEmails';
 
@@ -639,14 +636,12 @@ function DBSearchPage() {
     connections,
   ]);
 
-  const {
-    control,
-    watch,
-    setValue,
-    reset,
-    handleSubmit,
-    formState,
-  } = useForm<SearchConfigFromSchema & { connection?: string }>({
+  const { control, watch, setValue, reset, handleSubmit, formState } =
+    useForm<
+      SearchConfigFromSchema & {
+        connection?: string;
+      }
+    >({
     values: {
       select: searchedConfig.select || '',
       where: searchedConfig.where || '',
@@ -1902,7 +1897,7 @@ function DBSearchPage() {
 
 const DBSearchPageDynamic = dynamic(async () => DBSearchPage, { ssr: false });
 
-// @ts-expect-error
+// @ts-expect-error: Next.js dynamic component layout typing is not declared here
 DBSearchPageDynamic.getLayout = withAppNav;
 
 export default DBSearchPageDynamic;
