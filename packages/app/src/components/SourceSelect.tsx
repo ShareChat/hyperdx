@@ -4,6 +4,7 @@ import { SourceKind } from '@hyperdx/common-utils/dist/types';
 
 import SelectControlled from '@/components/SelectControlled';
 import { HDX_LOCAL_DEFAULT_SOURCES } from '@/config';
+import { useConnections } from '@/connection';
 import { useSources } from '@/source';
 
 function SourceSelectControlledComponent({
@@ -19,6 +20,8 @@ function SourceSelectControlledComponent({
   const { data } = useSources();
   const hasLocalDefaultSources = !!HDX_LOCAL_DEFAULT_SOURCES;
 
+  const { data: connections } = useConnections();
+
   const values = useMemo(
     () => [
       ...(data
@@ -28,7 +31,7 @@ function SourceSelectControlledComponent({
         )
         .map(d => ({
           value: d.id,
-          label: d.name,
+          label: connections?.find(c => c.id === d.connection)?.name + ' | ' + d.name,
         })) ?? []),
       ...(onCreate && !hasLocalDefaultSources
         ? [

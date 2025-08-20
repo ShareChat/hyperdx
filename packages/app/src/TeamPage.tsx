@@ -48,6 +48,7 @@ import { withAppNav } from './layout';
 import { useSources } from './source';
 import { useConfirm } from './useConfirm';
 import { capitalizeFirstLetter } from './utils';
+import { useAuthEmails } from './hooks/useAuthEmails';
 
 const DEFAULT_GENERIC_WEBHOOK_BODY = ['{{title}}', '{{body}}', '{{link}}'];
 const DEFAULT_GENERIC_WEBHOOK_BODY_TEMPLATE =
@@ -331,6 +332,7 @@ function TeamMembersSection() {
   const saveTeamInvitation = api.useSaveTeamInvitation();
   const deleteTeamMember = api.useDeleteTeamMember();
   const deleteTeamInvitation = api.useDeleteTeamInvitation();
+  const { hasAccess } = useAuthEmails();
 
   const sendTeamInviteAction = (email: string) => {
     if (email) {
@@ -549,7 +551,7 @@ function TeamMembersSection() {
                       )}
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'right' }}>
-                      {!member.isCurrentUser && hasAdminAccess && (
+                      {!member.isCurrentUser && hasAdminAccess && hasAccess(me?.email) && (
                         <Group justify="flex-end" gap="8">
                           <Button
                             size="compact-sm"
@@ -964,6 +966,8 @@ function IntegrationsSection() {
 function TeamNameSection() {
   const { data: team, isLoading, refetch: refetchTeam } = api.useTeam();
   const setTeamName = api.useSetTeamName();
+  const { data: me } = api.useMe();
+  const { hasAccess } = useAuthEmails();
   const hasAdminAccess = true;
   const [isEditingTeamName, setIsEditingTeamName] = useState(false);
   const form = useForm<{ name: string }>({
@@ -1045,7 +1049,7 @@ function TeamNameSection() {
         ) : (
           <Group gap="lg">
             <div className="text-slate-300 fs-7">{team.name}</div>
-            {hasAdminAccess && (
+            {hasAdminAccess && hasAccess(me?.email) && (
               <Button
                 size="xs"
                 variant="default"
@@ -1451,6 +1455,10 @@ function ApiKeysSection() {
 
 export default function TeamPage() {
   const { data: team, isLoading } = api.useTeam();
+  const { data: me } = api.useMe();
+  
+  // Use auth emails hook
+  const { authArray, hasAccess } = useAuthEmails();
   const hasAllowedAuthMethods =
     team?.allowedAuthMethods != null && team?.allowedAuthMethods.length > 0;
 
@@ -1471,12 +1479,12 @@ export default function TeamPage() {
           )}
           {!isLoading && team != null && (
             <Stack my={20} gap="xl">
-              <SourcesSection />
-              <ConnectionsSection />
+              {hasAccess(me?.email) && <SourcesSection />}
+              {hasAccess(me?.email) && <ConnectionsSection />}
               <IntegrationsSection />
               <TeamNameSection />
-              <TeamQueryConfigSection />
-              <ApiKeysSection />
+              {hasAccess(me?.email) && <TeamQueryConfigSection />}
+              {hasAccess(me?.email) && <ApiKeysSection />}
 
               {hasAllowedAuthMethods && (
                 <>

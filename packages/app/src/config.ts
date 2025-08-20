@@ -11,6 +11,9 @@ export const HDX_LOCAL_DEFAULT_SOURCES = env(
 export const HDX_DISABLE_METADATA_FIELD_FETCH = env(
   'NEXT_PUBLIC_HDX_DISABLE_METADATA_FIELD_FETCH',
 );
+export const HDX_AUTH_EMAILS = env(
+  'NEXT_PUBLIC_HDX_AUTH_EMAILS',
+);
 
 export const NODE_ENV = process.env.NODE_ENV as string;
 export const HDX_API_KEY = process.env.HYPERDX_API_KEY as string; // for nextjs server

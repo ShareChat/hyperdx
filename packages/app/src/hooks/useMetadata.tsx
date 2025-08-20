@@ -191,7 +191,7 @@ export function useGetKeyValues(
           chartConfigsArr.map(chartConfig =>
             metadata.getKeyValues({
               chartConfig,
-              keys: keys.slice(0, 20), // Limit to 20 keys for now, otherwise request fails (max header size)
+              keys: keys.slice(0, 50), // Limit to 50 keys for now, otherwise request fails (max header size)
               limit,
               disableRowLimit,
             }),

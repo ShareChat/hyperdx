@@ -480,83 +480,10 @@ const DBSearchPageFiltersComponent = ({
   console.error('🚀 END OF COMPONENT PROPS LOGGING 🚀');
   console.error('');
 
-  // const keysToFetch = useMemo(() => {
-  //   // Get keys for the source type - will return specific keys if available, or default keys otherwise
-  //   return getKeysForSourceType(sourceType);
-  // }, [sourceType]);
-
   const keysToFetch = useMemo(() => {
-    console.error('🔍 keysToFetch function called with:');
-    console.error('  - sourceType:', sourceType);
-    console.error('  - data available:', !!data);
-    console.error('  - data length:', data?.length || 0);
-    console.error(
-      '  - serviceMapOverride keys:',
-      Object.keys(serviceMapOverride),
-    );
-
-    // First check if we have a source type override
-    if (sourceType && sourceType in serviceMapOverride) {
-      const overrideKeys =
-        serviceMapOverride[sourceType as keyof typeof serviceMapOverride];
-      console.error(
-        '✅ Using source type override for',
-        sourceType,
-        ':',
-        overrideKeys,
-      );
-      return overrideKeys;
-    }
-
-    console.error(
-      '⚠️ No source type override found for',
-      sourceType,
-      '- falling back to data-based logic',
-    );
-
-    // If no source type override, fall back to data-based logic
-    if (!data) {
-      console.error('❌ No data available, returning empty array');
-      return [];
-    }
-    console.error('📊 Processing data for keysToFetch:');
-    console.error('  - Raw data sample:', data.slice(0, 3));
-    console.error('  - showMoreFields:', showMoreFields);
-    console.error('  - filterState keys:', Object.keys(filterState));
-
-    const strings = data
-      .sort((a, b) => {
-        // First show low cardinality fields
-        const isLowCardinality = (type: string) =>
-          type.includes('LowCardinality');
-        return isLowCardinality(a.type) && !isLowCardinality(b.type) ? -1 : 1;
-      })
-      .filter(
-        field => field.jsType && ['string'].includes(field.jsType),
-        // todo: add number type with sliders :D
-      )
-      .map(({ path, type }) => {
-        return { type, path: mergePath(path) };
-      })
-      .filter(
-        field =>
-          showMoreFields ||
-          field.type.includes('LowCardinality') || // query only low cardinality fields by default
-          Object.keys(filterState).includes(field.path) || // keep selected fields
-          isFieldPinned(field.path), // keep pinned fields
-      )
-      .map(({ path }) => path)
-      .filter(
-        path =>
-          !['body', 'timestamp', '_hdx_body'].includes(path.toLowerCase()),
-      );
-
-    console.error('🎯 Final keysToFetch result:', strings);
-    console.error('  - Total keys found:', strings.length);
-    console.error('  - Keys:', strings);
-
-    return strings;
-  }, [sourceType, data, filterState, showMoreFields]);
+    // Keep keys static relative to source type, independent of current selections
+    return getKeysForSourceType(sourceType);
+  }, [sourceType]);
 
   // Special case for live tail
   const [dateRange, setDateRange] = useState<[Date, Date]>(
@@ -627,11 +554,8 @@ const DBSearchPageFiltersComponent = ({
 
     //for filters
     for (const facet of facets ?? []) {
-      // don't include empty facets, unless they are already selected
-      const filter = filterState[facet.key];
-      const hasSelectedValues =
-        filter && (filter.included.size > 0 || filter.excluded.size > 0);
-      if (facet.value?.length > 0 || hasSelectedValues) {
+      // Only include non-empty facets from the server; ignore current selections
+      if (facet.value?.length > 0) {
         const extraValues = extraFacets[facet.key];
         if (extraValues && extraValues.length > 0) {
           const allValues = facet.value.slice();
@@ -649,13 +573,6 @@ const DBSearchPageFiltersComponent = ({
         }
       }
     }
-    // get remaining filterState that are not in _facets
-    const remainingFilterState = Object.keys(filterState).filter(
-      key => !_facets.some(facet => facet.key === key),
-    );
-    for (const key of remainingFilterState) {
-      _facets.push({ key, value: Array.from(filterState[key].included) });
-    }
 
     // Any other keys, let's add them in with empty values
     for (const key of keysToFetch) {
@@ -672,7 +589,7 @@ const DBSearchPageFiltersComponent = ({
     });
 
     return _facets;
-  }, [facets, filterState, extraFacets, keysToFetch, isFieldPinned]);
+  }, [facets, extraFacets, keysToFetch, isFieldPinned]);
 
   const showClearAllButton = useMemo(
     () =>

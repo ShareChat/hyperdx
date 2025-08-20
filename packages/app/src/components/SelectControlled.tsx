@@ -12,9 +12,9 @@ export default function SelectControlled(props: SelectControlledProps) {
   const { field, fieldState } = useController(props);
   const { onCreate, allowDeselect = true, ...restProps } = props;
 
-  // This is needed as mantine does not clear the select
-  // if the value is not in the data after
-  // if it was previously in the data (ex. data was deleted)
+  // Compute whether the current field value matches one of the options.
+  // Defer clearing (setting null) until options are actually available.
+  const hasOptions = Array.isArray(props.data) && props.data.length > 0;
   const selected = props.data?.find(d =>
     typeof d === 'string'
       ? d === field.value
@@ -38,7 +38,7 @@ export default function SelectControlled(props: SelectControlledProps) {
     <Select
       {...restProps}
       error={fieldState.error?.message}
-      value={selected == null ? null : field.value}
+      value={!hasOptions || selected != null ? field.value : null}
       onChange={onChange}
       onBlur={field.onBlur}
       name={field.name}
