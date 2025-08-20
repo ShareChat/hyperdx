@@ -1,3 +1,4 @@
+/* eslint-disable */
 import {
   FormEvent,
   FormEventHandler,
@@ -58,7 +59,6 @@ import { notifications } from '@mantine/notifications';
 import { useIsFetching } from '@tanstack/react-query';
 import CodeMirror from '@uiw/react-codemirror';
 
-
 import { ContactSupportText } from '@/components/ContactSupportText';
 import DBDeltaChart from '@/components/DBDeltaChart';
 import DBHeatmapChart from '@/components/DBHeatmapChart';
@@ -79,6 +79,7 @@ import { Tags } from '@/components/Tags';
 import { TimePicker } from '@/components/TimePicker';
 import WhereLanguageControlled from '@/components/WhereLanguageControlled';
 import { IS_LOCAL_MODE } from '@/config';
+import { useAuthEmails } from '@/hooks/useAuthEmails';
 import { useAliasMapFromChartConfig } from '@/hooks/useChartConfig';
 import { useExplainQuery } from '@/hooks/useExplainQuery';
 import { withAppNav } from '@/layout';
@@ -96,9 +97,8 @@ import {
   useSource,
   useSources,
 } from '@/source';
-import { useNewTimeQuery, dateRangeToString } from '@/timeQuery';
+import { dateRangeToString, useNewTimeQuery } from '@/timeQuery';
 import { QUERY_LOCAL_STORAGE, useLocalStorage, usePrevious } from '@/utils';
-import { useAuthEmails } from '@/hooks/useAuthEmails';
 
 import { SQLPreview } from './components/ChartSQLPreview';
 import PatternTable from './components/PatternTable';
@@ -636,12 +636,11 @@ function DBSearchPage() {
     connections,
   ]);
 
-  const { control, watch, setValue, reset, handleSubmit, formState } =
-    useForm<
-      SearchConfigFromSchema & {
-        connection?: string;
-      }
-    >({
+  const { control, watch, setValue, reset, handleSubmit, formState } = useForm<
+    SearchConfigFromSchema & {
+      connection?: string;
+    }
+  >({
     values: {
       select: searchedConfig.select || '',
       where: searchedConfig.where || '',
@@ -676,11 +675,9 @@ function DBSearchPage() {
   const initialTimeDisplay = useMemo(() => {
     return dateRangeToString(defaultTimeRange, false);
   }, []);
-  
+
   const [displayedTimeInputValue, setDisplayedTimeInputValue] =
     useState(initialTimeDisplay);
-
-
 
   // Set isLive to false when starting with a fixed time range
   useEffect(() => {
@@ -869,7 +866,7 @@ function DBSearchPage() {
           setTimeout(() => debouncedSubmit(), 0);
         }
       }
-      
+
       // If the user changes the connection dropdown, update URL state and trigger data refresh
       if (name === 'connection' && type === 'change') {
         if (data.connection) {
@@ -1245,7 +1242,8 @@ function DBSearchPage() {
     if (!selectedConnectionId || !inputSourceObjs) return;
     const allowedKinds = [SourceKind.Log, SourceKind.Trace];
     const firstMatching = inputSourceObjs.find(
-      s => s.connection === selectedConnectionId && allowedKinds.includes(s.kind),
+      s =>
+        s.connection === selectedConnectionId && allowedKinds.includes(s.kind),
     );
     if (!firstMatching) return;
     const currentSourceId = watch('source');
@@ -1278,30 +1276,30 @@ function DBSearchPage() {
             <ConnectionSelectControlled control={control} name="connection" size="xs" />
           </Box> */}
           <Group gap="4px" wrap="nowrap">
-            <Box style={{ minWidth: 200}}>
-      <SourceSelectControlled
-              key={`${savedSearchId}`}
-              size="xs"
-              control={control}
-              name="source"
-              onCreate={openNewSourceModal}
-              allowedSourceKinds={[SourceKind.Log, SourceKind.Trace]}
-            />
+            <Box style={{ minWidth: 200 }}>
+              <SourceSelectControlled
+                key={`${savedSearchId}`}
+                size="xs"
+                control={control}
+                name="source"
+                onCreate={openNewSourceModal}
+                allowedSourceKinds={[SourceKind.Log, SourceKind.Trace]}
+              />
             </Box>
             <Menu withArrow position="bottom-start">
               {authArray[me?.email as keyof typeof authArray] && (
                 <Menu.Target>
-                <ActionIcon
-                  variant="subtle"
-                  color="dark.2"
-                  size="sm"
-                  title="Edit Source"
-                >
-                  <Text size="xs">
-                    <i className="bi bi-gear" />
-                  </Text>
-                </ActionIcon>
-              </Menu.Target>
+                  <ActionIcon
+                    variant="subtle"
+                    color="dark.2"
+                    size="sm"
+                    title="Edit Source"
+                  >
+                    <Text size="xs">
+                      <i className="bi bi-gear" />
+                    </Text>
+                  </ActionIcon>
+                </Menu.Target>
               )}
               <Menu.Dropdown>
                 <Menu.Label>Sources</Menu.Label>

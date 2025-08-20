@@ -1,5 +1,9 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
-
+import Head from 'next/head';
+import { HTTPError } from 'ky';
+import { Button as BSButton, Modal as BSModal } from 'react-bootstrap';
+import { CopyToClipboard } from 'react-copy-to-clipboard';
+import { SubmitHandler, useForm } from 'react-hook-form';
 import { json, jsonParseLinter } from '@codemirror/lang-json';
 import { linter } from '@codemirror/lint';
 import { EditorView } from '@codemirror/view';
@@ -29,24 +33,20 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import CodeMirror, { placeholder } from '@uiw/react-codemirror';
-import { HTTPError } from 'ky';
-import Head from 'next/head';
-import { Button as BSButton, Modal as BSModal } from 'react-bootstrap';
-import { CopyToClipboard } from 'react-copy-to-clipboard';
-import { SubmitHandler, useForm } from 'react-hook-form';
 
-import api from './api';
 import { ConnectionForm } from '@/components/ConnectionForm';
 import SelectControlled from '@/components/SelectControlled';
 import { TableSourceForm } from '@/components/SourceForm';
 import { IS_LOCAL_MODE } from '@/config';
+
 import { PageHeader } from './components/PageHeader';
+import { useAuthEmails } from './hooks/useAuthEmails';
+import api from './api';
 import { useConnections } from './connection';
 import { DEFAULT_SEARCH_ROW_LIMIT } from './defaults';
 import { withAppNav } from './layout';
 import { useSources } from './source';
 import { useConfirm } from './useConfirm';
-import { useAuthEmails } from './hooks/useAuthEmails';
 import { capitalizeFirstLetter } from './utils';
 
 const DEFAULT_GENERIC_WEBHOOK_BODY = ['{{title}}', '{{body}}', '{{link}}'];
