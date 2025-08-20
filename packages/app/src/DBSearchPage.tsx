@@ -58,7 +58,7 @@ import { notifications } from '@mantine/notifications';
 import { useIsFetching } from '@tanstack/react-query';
 import CodeMirror from '@uiw/react-codemirror';
 
-import { useTimeChartSettings } from '@/ChartUtils';
+
 import { ContactSupportText } from '@/components/ContactSupportText';
 import DBDeltaChart from '@/components/DBDeltaChart';
 import DBHeatmapChart from '@/components/DBHeatmapChart';
@@ -79,10 +79,7 @@ import { Tags } from '@/components/Tags';
 import { TimePicker } from '@/components/TimePicker';
 import WhereLanguageControlled from '@/components/WhereLanguageControlled';
 import { IS_LOCAL_MODE } from '@/config';
-import {
-  useAliasMapFromChartConfig,
-  useQueriedChartConfig,
-} from '@/hooks/useChartConfig';
+import { useAliasMapFromChartConfig } from '@/hooks/useChartConfig';
 import { useExplainQuery } from '@/hooks/useExplainQuery';
 import { withAppNav } from '@/layout';
 import {
@@ -99,7 +96,10 @@ import {
   useSource,
   useSources,
 } from '@/source';
-import { parseTimeQuery, useNewTimeQuery, dateRangeToString } from '@/timeQuery';
+import {
+  useNewTimeQuery,
+  dateRangeToString,
+} from '@/timeQuery';
 import { QUERY_LOCAL_STORAGE, useLocalStorage, usePrevious } from '@/utils';
 import { useAuthEmails } from '@/hooks/useAuthEmails';
 
@@ -496,7 +496,7 @@ function useSearchedConfigToChartConfig({
     }
 
     return { data: null, isLoading };
-  }, [sourceObj, isLoading, select, filters, where, whereLanguage]);
+  }, [sourceObj, isLoading, select, filters, where, whereLanguage, orderBy]);
 }
 
 // This is outside as it needs to be a stable reference
@@ -536,7 +536,9 @@ function DBSearchPage() {
         const url = new URL(window.location.href);
         url.searchParams.delete('filters');
         window.history.replaceState({}, '', url.toString());
-      } catch {}
+      } catch {
+        // Ignore errors when manipulating URL
+      }
       setSearchedConfig({ filters: [] });
     }
   }, [setSearchedConfig]);
@@ -607,26 +609,35 @@ function DBSearchPage() {
     if (searchedConfig.connection) {
       return searchedConfig.connection;
     }
-    
     // Then try to get connection from current source
     if (searchedConfig.source && inputSourceObjs) {
-      const sourceObj = inputSourceObjs.find(s => s.id === searchedConfig.source);
+      const sourceObj = inputSourceObjs.find(
+        s => s.id === searchedConfig.source,
+      );
       if (sourceObj?.connection) {
         return sourceObj.connection;
       }
     }
-    
+
     // Then try connection from last selected source
     if (lastSelectedSourceId && inputSourceObjs) {
-      const lastSource = inputSourceObjs.find(s => s.id === lastSelectedSourceId);
+      const lastSource = inputSourceObjs.find(
+        s => s.id === lastSelectedSourceId,
+      );
       if (lastSource?.connection) {
         return lastSource.connection;
       }
     }
-    
+
     // Finally fallback to first available connection
     return connections?.[0]?.id || undefined;
-  }, [searchedConfig.connection, searchedConfig.source, inputSourceObjs, lastSelectedSourceId, connections]);
+  }, [
+    searchedConfig.connection,
+    searchedConfig.source,
+    inputSourceObjs,
+    lastSelectedSourceId,
+    connections,
+  ]);
 
   const {
     control,
@@ -634,10 +645,7 @@ function DBSearchPage() {
     setValue,
     reset,
     handleSubmit,
-    getValues,
     formState,
-    setError,
-    resetField,
   } = useForm<SearchConfigFromSchema & { connection?: string }>({
     values: {
       select: searchedConfig.select || '',
@@ -721,7 +729,10 @@ function DBSearchPage() {
         filters: searchedConfig?.filters ?? [],
         orderBy: searchedConfig?.orderBy ?? '',
         // Use URL connection if available, otherwise preserve current form connection
-        connection: searchedConfig?.connection ?? watch('connection') ?? getInitialConnection(),
+        connection:
+          searchedConfig?.connection ??
+          watch('connection') ??
+          getInitialConnection(),
       });
     }
   }, [searchedConfig, reset, prevSearched, getInitialConnection, watch]);
@@ -791,7 +802,15 @@ function DBSearchPage() {
   const onSubmit = useCallback(() => {
     onSearch(displayedTimeInputValue);
     handleSubmit(
-      ({ select, where, whereLanguage, source, filters, orderBy, connection }) => {
+      ({
+        select,
+        where,
+        whereLanguage,
+        source,
+        filters,
+        orderBy,
+        connection,
+      }) => {
         setSearchedConfig({
           select,
           where,
@@ -1037,7 +1056,7 @@ function DBSearchPage() {
       ...chartConfig,
       dateRange: searchedTimeRange,
     };
-  }, [me?.team, chartConfig, searchedTimeRange]);
+  }, [chartConfig, searchedTimeRange]);
 
   const displayedColumns = splitAndTrimWithBracket(
     dbSqlRowTableConfig?.select ??
@@ -1098,7 +1117,7 @@ function DBSearchPage() {
       // Only trigger if we haven't searched yet (no time range in URL)
       const searchParams = new URLSearchParams(window.location.search);
       if (!searchParams.has('from') && !searchParams.has('to')) {
-        let newTimeRange = new Date(defaultTimeRange[0]);
+        const newTimeRange = new Date(defaultTimeRange[0]);
         onSearch(newTimeRange.toISOString());
       }
     }
@@ -1166,7 +1185,7 @@ function DBSearchPage() {
       onTimeRangeSelect(d1, d2);
       setIsLive(false);
     },
-    [onTimeRangeSelect],
+    [onTimeRangeSelect, setIsLive],
   );
 
   const onTimeChartError = useCallback(
@@ -1207,7 +1226,7 @@ function DBSearchPage() {
   }, []);
 
   // Parse demo auth emails from environment variable
-  const { authArray, hasAccess } = useAuthEmails();
+  const { authArray } = useAuthEmails();
 
   // Ensure connection is set when data becomes available
   useEffect(() => {
@@ -1235,16 +1254,19 @@ function DBSearchPage() {
     );
     if (!firstMatching) return;
     const currentSourceId = watch('source');
-    const currentSource = inputSourceObjs.find(s => s.id === (currentSourceId as any));
+    const currentSource = inputSourceObjs.find(
+      s => s.id === (currentSourceId as any),
+    );
     if (!currentSource || currentSource.connection !== selectedConnectionId) {
-      setValue('source', firstMatching.id, { shouldDirty: true, shouldTouch: true });
+      setValue('source', firstMatching.id, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
     }
   }, [selectedConnectionId, inputSourceObjs, setValue, watch]);
-  
 
   return (
     <Flex direction="column" h="100vh" style={{ overflow: 'hidden' }}>
-     
       {!IS_LOCAL_MODE && isAlertModalOpen && (
         <DBSearchPageAlertModal
           id={savedSearch?.id}
@@ -1525,7 +1547,6 @@ function DBSearchPage() {
         <SaveSearchModal
           opened={saveSearchModalState != null}
           onClose={() => setSaveSearchModalState(undefined)}
-          // @ts-ignore FIXME: Do some sort of validation?
           searchedConfig={searchedConfig}
           isUpdate={saveSearchModalState === 'update'}
           savedSearchId={savedSearchId}
@@ -1881,7 +1902,7 @@ function DBSearchPage() {
 
 const DBSearchPageDynamic = dynamic(async () => DBSearchPage, { ssr: false });
 
-// @ts-ignore
+// @ts-expect-error
 DBSearchPageDynamic.getLayout = withAppNav;
 
 export default DBSearchPageDynamic;

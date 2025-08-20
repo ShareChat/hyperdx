@@ -1,9 +1,5 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
-import Head from 'next/head';
-import { HTTPError } from 'ky';
-import { Button as BSButton, Modal as BSModal } from 'react-bootstrap';
-import { CopyToClipboard } from 'react-copy-to-clipboard';
-import { SubmitHandler, useForm } from 'react-hook-form';
+
 import { json, jsonParseLinter } from '@codemirror/lang-json';
 import { linter } from '@codemirror/lint';
 import { EditorView } from '@codemirror/view';
@@ -32,8 +28,12 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { UseQueryResult } from '@tanstack/react-query';
 import CodeMirror, { placeholder } from '@uiw/react-codemirror';
+import Head from 'next/head';
+import { HTTPError } from 'ky';
+import { Button as BSButton, Modal as BSModal } from 'react-bootstrap';
+import { CopyToClipboard } from 'react-copy-to-clipboard';
+import { SubmitHandler, useForm } from 'react-hook-form';
 
 import { ConnectionForm } from '@/components/ConnectionForm';
 import SelectControlled from '@/components/SelectControlled';
@@ -296,7 +296,7 @@ function SourcesSection() {
 function TeamMembersSection() {
   const hasAdminAccess = true;
 
-  const { data: me, isLoading: isLoadingMe } = api.useMe();
+  const { data: me } = api.useMe();
   const { data: team } = api.useTeam();
   const {
     data: members,
@@ -339,7 +339,7 @@ function TeamMembersSection() {
       saveTeamInvitation.mutate(
         { email },
         {
-          onSuccess: resp => {
+          onSuccess: () => {
             notifications.show({
               color: 'green',
               message:
@@ -347,11 +347,11 @@ function TeamMembersSection() {
             });
             refetchInvitations();
           },
-          onError: e => {
+          onError: (e: any) => {
             if (e instanceof HTTPError) {
               e.response
                 .json()
-                .then(res => {
+                .then((res: any) => {
                   notifications.show({
                     color: 'red',
                     message: res.message,
@@ -398,18 +398,18 @@ function TeamMembersSection() {
       deleteTeamInvitation.mutate(
         { id: encodeURIComponent(id) },
         {
-          onSuccess: resp => {
+          onSuccess: () => {
             notifications.show({
               color: 'green',
               message: 'Deleted team invite',
             });
             refetchInvitations();
           },
-          onError: e => {
+          onError: (e: any) => {
             if (e instanceof HTTPError) {
               e.response
                 .json()
-                .then(res => {
+                .then((res: any) => {
                   notifications.show({
                     color: 'red',
                     message: res.message,
@@ -442,18 +442,18 @@ function TeamMembersSection() {
       deleteTeamMember.mutate(
         { userId: encodeURIComponent(id) },
         {
-          onSuccess: resp => {
+          onSuccess: () => {
             notifications.show({
               color: 'green',
               message: 'Deleted team member',
             });
             refetchMembers();
           },
-          onError: e => {
+          onError: (e: any) => {
             if (e instanceof HTTPError) {
               e.response
                 .json()
-                .then(res => {
+                .then((res: any) => {
                   notifications.show({
                     color: 'red',
                     message: res.message,
@@ -551,24 +551,26 @@ function TeamMembersSection() {
                       )}
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'right' }}>
-                      {!member.isCurrentUser && hasAdminAccess && hasAccess(me?.email) && (
-                        <Group justify="flex-end" gap="8">
-                          <Button
-                            size="compact-sm"
-                            variant="light"
-                            color="red"
-                            onClick={() =>
-                              setDeleteTeamMemberConfirmationModalData({
-                                mode: 'team',
-                                id: member._id,
-                                email: member.email,
-                              })
-                            }
-                          >
-                            Remove
-                          </Button>
-                        </Group>
-                      )}
+                      {!member.isCurrentUser &&
+                        hasAdminAccess &&
+                        hasAccess(me?.email) && (
+                          <Group justify="flex-end" gap="8">
+                            <Button
+                              size="compact-sm"
+                              variant="light"
+                              color="red"
+                              onClick={() =>
+                                setDeleteTeamMemberConfirmationModalData({
+                                  mode: 'team',
+                                  id: member._id,
+                                  email: member.email,
+                                })
+                              }
+                            >
+                              Remove
+                            </Button>
+                          </Group>
+                        )}
                     </Table.Td>
                   </Table.Tr>
                 ))}
@@ -964,7 +966,7 @@ function IntegrationsSection() {
 }
 
 function TeamNameSection() {
-  const { data: team, isLoading, refetch: refetchTeam } = api.useTeam();
+  const { data: team, refetch: refetchTeam } = api.useTeam();
   const setTeamName = api.useSetTeamName();
   const { data: me } = api.useMe();
   const { hasAccess } = useAuthEmails();
@@ -981,7 +983,7 @@ function TeamNameSection() {
       setTeamName.mutate(
         { name: values.name },
         {
-          onError: e => {
+          onError: () => {
             notifications.show({
               color: 'red',
               message: 'Failed to update team name',
@@ -998,7 +1000,7 @@ function TeamNameSection() {
         },
       );
     },
-    [refetchTeam, setTeamName, team?.name],
+    [refetchTeam, setTeamName],
   );
   return (
     <Box id="team_name">
@@ -1128,7 +1130,7 @@ function ClickhouseSettingForm({
         updateClickhouseSettings.mutate(
           { [settingKey]: settingValue },
           {
-            onError: e => {
+            onError: () => {
               notifications.show({
                 color: 'red',
                 message: `Failed to update ${label}`,
@@ -1345,7 +1347,7 @@ const APIKeyCopyButton = ({
 
 function ApiKeysSection() {
   const { data: team, refetch: refetchTeam } = api.useTeam();
-  const { data: me, isLoading: isLoadingMe } = api.useMe();
+  const { data: me } = api.useMe();
   const rotateTeamApiKey = api.useRotateTeamApiKey();
   const hasAdminAccess = true;
   const [
@@ -1439,7 +1441,7 @@ function ApiKeysSection() {
           </MModal.Body>
         </MModal>
       </Card>
-      {!isLoadingMe && me != null && (
+      {me != null && (
         <Card>
           <Card.Section p="md">
             <Text c="gray.3" mb="md">
@@ -1456,9 +1458,9 @@ function ApiKeysSection() {
 export default function TeamPage() {
   const { data: team, isLoading } = api.useTeam();
   const { data: me } = api.useMe();
-  
+
   // Use auth emails hook
-  const { authArray, hasAccess } = useAuthEmails();
+  const { hasAccess } = useAuthEmails();
   const hasAllowedAuthMethods =
     team?.allowedAuthMethods != null && team?.allowedAuthMethods.length > 0;
 

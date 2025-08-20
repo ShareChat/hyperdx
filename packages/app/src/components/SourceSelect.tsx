@@ -31,7 +31,10 @@ function SourceSelectControlledComponent({
         )
         .map(d => ({
           value: d.id,
-          label: connections?.find(c => c.id === d.connection)?.name + ' | ' + d.name,
+          label:
+            connections?.find(c => c.id === d.connection)?.name +
+            ' | ' +
+            d.name,
         })) ?? []),
       ...(onCreate && !hasLocalDefaultSources
         ? [

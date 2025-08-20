@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+
 import { HDX_AUTH_EMAILS } from '@/config';
 
 /**
@@ -7,18 +8,14 @@ import { HDX_AUTH_EMAILS } from '@/config';
  */
 export const useAuthEmails = () => {
   const authArray = useMemo(() => {
-    
     if (!HDX_AUTH_EMAILS) {
-      console.warn('HDX_AUTH_EMAILS environment variable is not set');
       return {};
     }
-    
+
     try {
       const parsed = JSON.parse(HDX_AUTH_EMAILS);
-      console.log('Parsed authArray:', parsed);
       return parsed;
     } catch (error) {
-      console.warn('Failed to parse HDX_AUTH_EMAILS:', error);
       return {};
     }
   }, []);
@@ -38,7 +35,9 @@ export const useAuthEmails = () => {
    * @returns {string[]} - Array of email addresses with access
    */
   const getAuthorizedEmails = () => {
-    return Object.keys(authArray).filter(email => authArray[email as keyof typeof authArray]);
+    return Object.keys(authArray).filter(
+      email => authArray[email as keyof typeof authArray],
+    );
   };
 
   return {
