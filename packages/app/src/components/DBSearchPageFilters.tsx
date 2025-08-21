@@ -480,10 +480,29 @@ const DBSearchPageFiltersComponent = ({
   console.error('🚀 END OF COMPONENT PROPS LOGGING 🚀');
   console.error('');
 
+  const fieldKeys = useMemo(() => {
+    const fields = data ?? [];
+    // Map Field.path to SQL-style key notation used in filters (e.g., ResourceAttributes['k8s.namespace.name'])
+    const keys = new Set<string>();
+    for (const f of fields as any[]) {
+      if (f?.path && Array.isArray(f.path)) {
+        const key = mergePath(f.path);
+        if (key) keys.add(key);
+      }
+    }
+    return Array.from(keys);
+  }, [data]);
+
   const keysToFetch = useMemo(() => {
-    // Keep keys static relative to source type, independent of current selections
-    return getKeysForSourceType(sourceType);
-  }, [sourceType]);
+    const overrides = getKeysForSourceType(sourceType);
+    // Always include keys currently present in filter state so their option lists load after reload
+    const selectedKeys = Object.keys(filterState ?? {});
+    // When "More filters" is enabled, include all field keys; otherwise only show curated overrides
+    const all = showMoreFields
+      ? Array.from(new Set([...overrides, ...fieldKeys, ...selectedKeys]))
+      : Array.from(new Set([...overrides, ...selectedKeys]));
+    return all;
+  }, [sourceType, showMoreFields, fieldKeys, filterState]);
 
   // Special case for live tail
   const [dateRange, setDateRange] = useState<[Date, Date]>(
@@ -500,14 +519,19 @@ const DBSearchPageFiltersComponent = ({
   const showRefreshButton = isLive && dateRange !== chartConfig.dateRange;
 
   const keyLimit = 20;
+  // Build a config for facets that ignores currently applied filters, so options are not narrowed
+  const facetsChartConfig = useMemo(() => {
+    const { filters, ...rest } = chartConfig as any;
+    return { ...rest } as ChartConfigWithDateRange;
+  }, [chartConfig]);
   const {
     data: facets,
     isLoading: isFacetsLoading,
     isFetching: isFacetsFetching,
   } = useGetKeyValues({
-    chartConfigs: { ...chartConfig, dateRange },
+    chartConfigs: { ...facetsChartConfig, dateRange },
     limit: keyLimit,
-    keys: getKeysForSourceType(sourceType),
+    keys: keysToFetch,
   });
 
   const [extraFacets, setExtraFacets] = useState<Record<string, string[]>>({});
@@ -522,7 +546,7 @@ const DBSearchPageFiltersComponent = ({
         const metadata = getMetadata();
         const newKeyVals = await metadata.getKeyValues({
           chartConfig: {
-            ...chartConfig,
+            ...facetsChartConfig,
             dateRange,
           },
           keys: [key],

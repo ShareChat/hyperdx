@@ -515,31 +515,6 @@ function DBSearchPage() {
 
   const [searchedConfig, setSearchedConfig] = useQueryStates(queryStateMap);
 
-  // On initial load, if URL contains filters param, strip it from URL and state
-  const initialHadFiltersRef = useRef<boolean>(
-    (() => {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        return params.has('filters');
-      } catch {
-        return false;
-      }
-    })(),
-  );
-
-  useEffect(() => {
-    if (initialHadFiltersRef.current) {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('filters');
-        window.history.replaceState({}, '', url.toString());
-      } catch {
-        // Ignore errors when manipulating URL
-      }
-      setSearchedConfig({ filters: [] });
-    }
-  }, [setSearchedConfig]);
-
   const { data: savedSearch } = useSavedSearch(
     { id: `${savedSearchId}` },
     {
@@ -914,17 +889,8 @@ function DBSearchPage() {
     'create' | 'update' | undefined
   >(undefined);
 
-  // Ignore initial filters from URL for first render to avoid narrowing facets
-  const searchedConfigForInit = useMemo(
-    () =>
-      initialHadFiltersRef.current
-        ? { ...searchedConfig, filters: [] }
-        : searchedConfig,
-    [searchedConfig],
-  );
-
   const { data: chartConfig, isLoading: isChartConfigLoading } =
-    useSearchedConfigToChartConfig(searchedConfigForInit);
+    useSearchedConfigToChartConfig(searchedConfig);
 
   // query error handling
   const { hasQueryError, queryError } = useMemo(() => {
