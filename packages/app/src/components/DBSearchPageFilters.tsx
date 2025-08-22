@@ -520,8 +520,8 @@ const DBSearchPageFiltersComponent = ({
   const keyLimit = 20;
   // Build a config for facets that ignores currently applied filters, so options are not narrowed
   const facetsChartConfig = useMemo(() => {
-    const { filters, ...rest } = chartConfig as any;
-    return { ...rest } as ChartConfigWithDateRange;
+    const { filters, where, orderBy, ...rest } = chartConfig as any;
+    return { ...rest, where: '', orderBy: undefined } as ChartConfigWithDateRange;
   }, [chartConfig]);
   const {
     data: facets,
