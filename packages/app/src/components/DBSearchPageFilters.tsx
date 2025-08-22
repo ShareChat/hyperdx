@@ -31,13 +31,13 @@ import classes from '../../styles/SearchPage.module.scss';
 
 // Override keys for specific source types
 const serviceMapOverride = {
-  "Prod | Logs": [
+  'Prod | Logs': [
     'SeverityText',
     'ServiceName',
     "ResourceAttributes['k8s.cluster.name']",
     "ResourceAttributes['k8s.namespace.name']",
   ],
-  "Prod | Traces": [
+  'Prod | Traces': [
     'ServiceName',
     'StatusCode',
     "ResourceAttributes['k8s.node.name']",
@@ -50,8 +50,8 @@ const serviceMapOverride = {
 
 // Helper function to get keys - override for specific types, use default for others
 const getKeysForSourceType = (sourceName?: string, connectionName?: string) => {
- 
-  let newSourceKey = connectionName + " | " + sourceName;
+
+  const newSourceKey = connectionName + ' | ' + sourceName;
   if (newSourceKey && newSourceKey in serviceMapOverride) {
     return serviceMapOverride[newSourceKey as keyof typeof serviceMapOverride];
   }
