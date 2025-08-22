@@ -50,7 +50,6 @@ const serviceMapOverride = {
 
 // Helper function to get keys - override for specific types, use default for others
 const getKeysForSourceType = (sourceName?: string, connectionName?: string) => {
-
   const newSourceKey = connectionName + ' | ' + sourceName;
   if (newSourceKey && newSourceKey in serviceMapOverride) {
     return serviceMapOverride[newSourceKey as keyof typeof serviceMapOverride];
