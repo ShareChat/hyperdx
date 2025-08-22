@@ -31,13 +31,13 @@ import classes from '../../styles/SearchPage.module.scss';
 
 // Override keys for specific source types
 const serviceMapOverride = {
-  log: [
+  "Prod | Logs": [
     'SeverityText',
     'ServiceName',
     "ResourceAttributes['k8s.cluster.name']",
     "ResourceAttributes['k8s.namespace.name']",
   ],
-  trace: [
+  "Prod | Traces": [
     'ServiceName',
     'StatusCode',
     "ResourceAttributes['k8s.node.name']",
@@ -49,9 +49,11 @@ const serviceMapOverride = {
 };
 
 // Helper function to get keys - override for specific types, use default for others
-const getKeysForSourceType = (sourceType?: string) => {
-  if (sourceType && sourceType in serviceMapOverride) {
-    return serviceMapOverride[sourceType as keyof typeof serviceMapOverride];
+const getKeysForSourceType = (sourceName?: string, connectionName?: string) => {
+ 
+  let newSourceKey = connectionName + " | " + sourceName;
+  if (newSourceKey && newSourceKey in serviceMapOverride) {
+    return serviceMapOverride[newSourceKey as keyof typeof serviceMapOverride];
   }
   // For other source types, return empty array to use default behavior
   return [];
@@ -421,6 +423,8 @@ const DBSearchPageFiltersComponent = ({
   showDelta,
   denoiseResults,
   setDenoiseResults,
+  sourceName,
+  connectionName,
 }: {
   analysisMode: 'results' | 'delta' | 'pattern';
   setAnalysisMode: (mode: 'results' | 'delta' | 'pattern') => void;
@@ -431,6 +435,8 @@ const DBSearchPageFiltersComponent = ({
   showDelta: boolean;
   denoiseResults: boolean;
   setDenoiseResults: (denoiseResults: boolean) => void;
+  sourceName?: string;
+  connectionName?: string;
 } & FilterStateHook) => {
   // Log all component props and variables
   console.error('🚀 DBSearchPageFiltersComponent - ALL PROPS AND VARIABLES:');
@@ -494,15 +500,9 @@ const DBSearchPageFiltersComponent = ({
   }, [data]);
 
   const keysToFetch = useMemo(() => {
-    const overrides = getKeysForSourceType(sourceType);
-    // Always include keys currently present in filter state so their option lists load after reload
-    const selectedKeys = Object.keys(filterState ?? {});
-    // When "More filters" is enabled, include all field keys; otherwise only show curated overrides
-    const all = showMoreFields
-      ? Array.from(new Set([...overrides, ...fieldKeys, ...selectedKeys]))
-      : Array.from(new Set([...overrides, ...selectedKeys]));
-    return all;
-  }, [sourceType, showMoreFields, fieldKeys, filterState]);
+    const overrides = getKeysForSourceType(sourceName, connectionName);
+    return overrides;
+  }, [sourceName, connectionName]);
 
   // Special case for live tail
   const [dateRange, setDateRange] = useState<[Date, Date]>(

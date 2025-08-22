@@ -448,7 +448,7 @@ export class Metadata {
   async getKeyValues({
     chartConfig,
     keys,
-    limit = 100,
+    limit = 1000,
     disableRowLimit = false,
   }: {
     chartConfig: ChartConfigWithDateRange;

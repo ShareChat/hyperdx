@@ -459,6 +459,12 @@ function useSearchedConfigToChartConfig({
     id: source,
   });
 
+const { data: connections } = useConnections();
+const connectionName = useMemo(
+  () => connections?.find(c => c.id === sourceObj?.connection)?.name,
+  [connections, sourceObj?.connection],
+);
+
   return useMemo(() => {
     if (sourceObj != null) {
       return {
@@ -482,6 +488,7 @@ function useSearchedConfigToChartConfig({
           timestampValueExpression: sourceObj.timestampValueExpression,
           implicitColumnExpression: sourceObj.implicitColumnExpression,
           connection: sourceObj.connection,
+          connectionName,
           displayType: DisplayType.Search,
           orderBy:
             orderBy ||
@@ -674,13 +681,9 @@ function DBSearchPage() {
   // If live tail is null, and time range is null, let's live tail
   useEffect(() => {
     if (_isLive == null && isReady) {
-      if (from == null && to == null) {
-        setIsLive(true);
-      } else {
-        setIsLive(false);
-      }
+      setIsLive(false);
     }
-  }, [_isLive, setIsLive, from, to, isReady]);
+  }, [_isLive, setIsLive, isReady]);
 
   // Sync url state back with form state
   // (ex. for history navigation)
@@ -991,19 +994,10 @@ function DBSearchPage() {
     pause: isAnyQueryFetching || !queryReady || !isTabVisible,
   });
 
-  // This ensures we only render this conditionally on the client
-  // otherwise we get SSR hydration issues
-  const [shouldShowLiveModeHint, setShouldShowLiveModeHint] = useState(false);
-  useEffect(() => {
-    setShouldShowLiveModeHint(isLive === false);
-  }, [isLive]);
+  // Live Tail disabled; no resume hint needed
 
   const { data: me } = api.useMe();
-  const handleResumeLiveTail = useCallback(() => {
-    setIsLive(true);
-    setDisplayedTimeInputValue('Live Tail');
-    onSearch('Live Tail');
-  }, [onSearch, setIsLive]);
+  // Live Tail disabled; no resume handler
 
   const dbSqlRowTableConfig = useMemo(() => {
     if (chartConfig == null) {
@@ -1467,14 +1461,11 @@ function DBSearchPage() {
             inputValue={displayedTimeInputValue}
             setInputValue={setDisplayedTimeInputValue}
             onSearch={range => {
-              if (range === 'Live Tail') {
-                setIsLive(true);
-              } else {
-                setIsLive(false);
-              }
+              // Live Tail disabled
+              setIsLive(false);
               onSearch(range);
             }}
-            showLive={analysisMode === 'results'}
+            showLive={false}
           />
           <Button
             variant="outline"
@@ -1545,6 +1536,8 @@ function DBSearchPage() {
                   chartConfig={filtersChartConfig}
                   sourceId={inputSourceObj?.id}
                   sourceType={inputSourceObj?.kind}
+                  sourceName={inputSourceObj?.name}
+                  connectionName={(filtersChartConfig as any)?.connectionName}
                   showDelta={!!searchedSource?.durationExpression}
                   {...searchFilters}
                 />
@@ -1807,31 +1800,7 @@ function DBSearchPage() {
                   </>
                 ) : (
                   <>
-                    {shouldShowLiveModeHint &&
-                      analysisMode === 'results' &&
-                      denoiseResults != true && (
-                        <div
-                          className="d-flex justify-content-center"
-                          style={{ height: 0 }}
-                        >
-                          <div
-                            style={{
-                              position: 'relative',
-                              top: -20,
-                              zIndex: 2,
-                            }}
-                          >
-                            <Button
-                              size="compact-xs"
-                              variant="outline"
-                              onClick={handleResumeLiveTail}
-                            >
-                              <i className="bi text-success bi-lightning-charge-fill me-2" />
-                              Resume Live Tail
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                    {/* Live Tail disabled; no resume hint */}
                     {chartConfig &&
                       dbSqlRowTableConfig &&
                       analysisMode === 'results' && (
