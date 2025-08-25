@@ -192,7 +192,7 @@ export function useGetKeyValues(
             metadata.getKeyValues({
               chartConfig,
               keys: keys.slice(0, 50), // Limit to 50 keys for now, otherwise request fails (max header size)
-              limit,
+              limit : 1000,
               disableRowLimit,
             }),
           ),
