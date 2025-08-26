@@ -31,18 +31,19 @@ import classes from '../../styles/SearchPage.module.scss';
 
 // Override keys for specific source types
 const serviceMapOverride = {
-  'Mum | Logs': [
+  'Logs': [
+    "ResourceAttributes['cloud']",
+    "LogAttributes['log.iostream']",
     'SeverityText',
     'ServiceName',
     "ResourceAttributes['k8s.cluster.name']",
     "ResourceAttributes['k8s.namespace.name']",
     "ResourceAttributes['k8s.container.name']",
     "ResourceAttributes['label.team']",
-    "ResourceAttributes['label.pod']",
-    "ResourceAttributes['cloud']",
-    "LogAttributes['log.iostream']",
+    "ResourceAttributes['label.pod']",   
   ],
-  'Mum | Traces': [
+  'Traces': [
+    "ResourceAttributes['cloud']",
     'ServiceName',
     'StatusCode',
     'SpanKind',
@@ -51,75 +52,15 @@ const serviceMapOverride = {
     "ResourceAttributes['k8s.container.name']",
     "ResourceAttributes['label.team']",
     "ResourceAttributes['label.pod']",
-    "ResourceAttributes['cloud']",
+    
   ],
-  'Mum | K8s Events': [
+  'K8sEvents': [
+    "ResourceAttributes['cloud']",
     'SeverityText',
     "ResourceAttributes['k8s.cluster.name']",
     "ResourceAttributes['k8s.namespace.name']",
-    "ResourceAttributes['cloud']",
     "LogAttributes['k8s.event.reason']",
   ],
-  'US | Logs': [
-    'SeverityText',
-    'ServiceName',
-    "ResourceAttributes['k8s.cluster.name']",
-    "ResourceAttributes['k8s.namespace.name']",
-    "ResourceAttributes['k8s.container.name']",
-    "ResourceAttributes['label.team']",
-    "ResourceAttributes['label.pod']",
-    "ResourceAttributes['cloud']",
-    "LogAttributes['log.iostream']",
-  ],
-  'US | Traces': [
-    'ServiceName',
-    'StatusCode',
-    'SpanKind',
-    "ResourceAttributes['k8s.cluster.name']",
-    "ResourceAttributes['k8s.namespace.name']",
-    "ResourceAttributes['k8s.container.name']",
-    "ResourceAttributes['label.team']",
-    "ResourceAttributes['label.pod']",
-    "ResourceAttributes['cloud']",
-  ],
-  'US | K8s Events': [
-    'SeverityText',
-    "ResourceAttributes['k8s.cluster.name']",
-    "ResourceAttributes['k8s.namespace.name']",
-    "ResourceAttributes['cloud']",
-    "LogAttributes['k8s.event.reason']",
-  ],
-  'Sgp | Logs': [
-    'SeverityText',
-    'ServiceName',
-    "ResourceAttributes['k8s.cluster.name']",
-    "ResourceAttributes['k8s.namespace.name']",
-    "ResourceAttributes['k8s.container.name']",
-    "ResourceAttributes['label.team']",
-    "ResourceAttributes['label.pod']",
-    "ResourceAttributes['cloud']",
-    "LogAttributes['log.iostream']",
-  ],
-  'Sgp | Traces': [
-    'ServiceName',
-    'StatusCode',
-    'SpanKind',
-    "ResourceAttributes['k8s.cluster.name']",
-    "ResourceAttributes['k8s.namespace.name']",
-    "ResourceAttributes['k8s.container.name']",
-    "ResourceAttributes['label.team']",
-    "ResourceAttributes['label.pod']",
-    "ResourceAttributes['cloud']",
-  ],
-  'Sgp | K8s Events': [
-    'SeverityText',
-    "ResourceAttributes['k8s.cluster.name']",
-    "ResourceAttributes['k8s.namespace.name']",
-    "ResourceAttributes['cloud']",
-    "LogAttributes['k8s.event.reason']",
-  ],
-  session: ['ServiceName', 'StatusCode', 'SpanKind'],
-  metric: ['ServiceName', 'MetricName', 'Unit'],
 };
 
 // Helper function to get keys - override for specific types, use default for others
@@ -128,7 +69,20 @@ const getKeysForSourceType = (sourceName?: string, connectionName?: string) => {
   if (newSourceKey && newSourceKey in serviceMapOverride) {
     return serviceMapOverride[newSourceKey as keyof typeof serviceMapOverride];
   }
-  // For other source types, return empty array to use default behavior
+
+  if (sourceName) {
+    const lowerSourceName = sourceName.toLowerCase();
+    if (lowerSourceName.includes('logs')) {
+      return serviceMapOverride.Logs || [];
+    }
+    if (lowerSourceName.includes('traces')) {
+      return serviceMapOverride.Traces || [];
+    }
+    if (lowerSourceName.includes('k8s')) {
+      return serviceMapOverride.K8sEvents || [];
+    }
+  }
+  
   return [];
 };
 

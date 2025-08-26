@@ -23,8 +23,8 @@ function SourceSelectControlledComponent({
   const { data: connections } = useConnections();
 
   const values = useMemo(
-    () => [
-      ...(data
+    () => {
+      const sourceOptions = data
         ?.filter(
           source =>
             !allowedSourceKinds || allowedSourceKinds.includes(source.kind),
@@ -35,17 +35,19 @@ function SourceSelectControlledComponent({
             connections?.find(c => c.id === d.connection)?.name +
             ' | ' +
             d.name,
-        })) ?? []),
-      ...(onCreate && !hasLocalDefaultSources
-        ? [
-            {
-              value: '_create_new_value',
-              label: 'Create New Source',
-            },
-          ]
-        : []),
-    ],
-    [data, onCreate, allowedSourceKinds, hasLocalDefaultSources],
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)) ?? [];
+
+      const createNewOption = onCreate && !hasLocalDefaultSources
+        ? [{
+            value: '_create_new_value',
+            label: 'Create New Source',
+          }]
+        : [];
+
+      return [...sourceOptions, ...createNewOption];
+    },
+    [data, onCreate, allowedSourceKinds, hasLocalDefaultSources, connections],
   );
 
   return (
