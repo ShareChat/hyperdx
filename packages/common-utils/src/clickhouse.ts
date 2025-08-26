@@ -463,6 +463,12 @@ export class ClickhouseClient {
     let clickhouse_settings = structuredClone(
       external_clickhouse_settings || {},
     );
+    // Apply global defaults for all queries
+    clickhouse_settings = {
+      max_rows_to_read: '3000000',
+      read_overflow_mode: 'break',
+      ...clickhouse_settings,
+    } as ClickHouseSettings;
     if (clickhouse_settings?.max_rows_to_read && this.maxRowReadOnly) {
       delete clickhouse_settings['max_rows_to_read'];
     }
