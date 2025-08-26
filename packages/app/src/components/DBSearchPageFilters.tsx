@@ -31,7 +31,7 @@ import classes from '../../styles/SearchPage.module.scss';
 
 // Override keys for specific source types
 const serviceMapOverride = {
-  'Logs': [
+  Logs: [
     "ResourceAttributes['cloud']",
     "LogAttributes['log.iostream']",
     'SeverityText',
@@ -40,9 +40,9 @@ const serviceMapOverride = {
     "ResourceAttributes['k8s.namespace.name']",
     "ResourceAttributes['k8s.container.name']",
     "ResourceAttributes['label.team']",
-    "ResourceAttributes['label.pod']",   
+    "ResourceAttributes['label.pod']",
   ],
-  'Traces': [
+  Traces: [
     "ResourceAttributes['cloud']",
     'ServiceName',
     'StatusCode',
@@ -52,9 +52,8 @@ const serviceMapOverride = {
     "ResourceAttributes['k8s.container.name']",
     "ResourceAttributes['label.team']",
     "ResourceAttributes['label.pod']",
-    
   ],
-  'K8sEvents': [
+  K8sEvents: [
     "ResourceAttributes['cloud']",
     'SeverityText',
     "ResourceAttributes['k8s.cluster.name']",
@@ -82,7 +81,7 @@ const getKeysForSourceType = (sourceName?: string, connectionName?: string) => {
       return serviceMapOverride.K8sEvents || [];
     }
   }
-  
+
   return [];
 };
 
