@@ -1183,7 +1183,8 @@ function DBSearchPage() {
   // Ensure connection is set when data becomes available
   useEffect(() => {
     const currentConnection = watch('connection');
-    if (!currentConnection && connections && connections.length > 0) {
+    // Wait until sources are loaded so we can derive connection from selected source if present
+    if (!currentConnection && inputSourceObjs && connections && connections.length > 0) {
       const preferredConnectionId = getInitialConnection();
       if (preferredConnectionId) {
         setValue('connection', preferredConnectionId);
@@ -1194,7 +1195,7 @@ function DBSearchPage() {
         }));
       }
     }
-  }, [connections, setValue, watch, getInitialConnection, setSearchedConfig]);
+  }, [connections, inputSourceObjs, setValue, watch, getInitialConnection, setSearchedConfig]);
 
   // Ensure a matching initial source for the selected connection
   const selectedConnectionId = watch('connection');
@@ -1210,13 +1211,20 @@ function DBSearchPage() {
     const currentSource = inputSourceObjs.find(
       s => s.id === (currentSourceId as any),
     );
-    if (!currentSource || currentSource.connection !== selectedConnectionId) {
+    // If current source is missing, pick the first matching source for the connection
+    if (!currentSource) {
       setValue('source', firstMatching.id, {
         shouldDirty: true,
         shouldTouch: true,
       });
+      return;
     }
-  }, [selectedConnectionId, inputSourceObjs, setValue, watch]);
+    // If there is a mismatch, prefer keeping the current source and align the connection to it
+    if (currentSource.connection !== selectedConnectionId) {
+      setValue('connection', currentSource.connection as any);
+      setSearchedConfig(prev => ({ ...prev, connection: currentSource.connection }));
+    }
+  }, [selectedConnectionId, inputSourceObjs, setValue, setSearchedConfig, watch]);
 
   return (
     <Flex direction="column" h="100vh" style={{ overflow: 'hidden' }}>
