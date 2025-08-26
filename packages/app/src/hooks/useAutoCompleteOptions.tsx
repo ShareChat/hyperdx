@@ -7,8 +7,8 @@ import {
   useAllFields,
   useGetKeyValues,
 } from '@/hooks/useMetadata';
-import { toArray } from '@/utils';
 import { useNewTimeQuery } from '@/timeQuery';
+import { toArray } from '@/utils';
 
 export interface ILanguageFormatter {
   formatFieldValue: (f: Field) => string;
