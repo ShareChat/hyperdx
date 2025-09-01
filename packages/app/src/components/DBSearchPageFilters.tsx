@@ -31,9 +31,7 @@ import classes from '../../styles/SearchPage.module.scss';
 
 // Override keys for specific source types
 const serviceMapOverride = {
-  Logs: [
-    "ResourceAttributes['cloud']",
-    "LogAttributes['log.iostream']",
+  'Mum | Logs': [
     'SeverityText',
     'ServiceName',
     "ResourceAttributes['k8s.cluster.name']",
@@ -42,8 +40,7 @@ const serviceMapOverride = {
     "ResourceAttributes['label.team']",
     "ResourceAttributes['label.pod']",
   ],
-  Traces: [
-    "ResourceAttributes['cloud']",
+  'Mum | Traces': [
     'ServiceName',
     'StatusCode',
     'SpanKind',
@@ -53,8 +50,48 @@ const serviceMapOverride = {
     "ResourceAttributes['label.team']",
     "ResourceAttributes['label.pod']",
   ],
-  K8sEvents: [
-    "ResourceAttributes['cloud']",
+  'Mum | K8s Events': [
+    'SeverityText',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "LogAttributes['k8s.event.reason']",
+  ],
+  'US | Logs': [
+    'SeverityText ',
+    'ServiceName',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "ResourceAttributes['k8s.container.name']",
+    "ResourceAttributes['label.team']",
+    "ResourceAttributes['label.pod']",
+  ],
+  'US | Traces': [
+    'ServiceName',
+    'StatusCode',
+    'SpanKind',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "ResourceAttributes['k8s.container.name']",
+    "ResourceAttributes['label.team']",
+    "ResourceAttributes['label.pod']",
+    "ResourceAttributes['label.pod']",   
+  ],
+  'US | K8s Events': [
+    'SeverityText',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "LogAttributes['k8s.event.reason']",
+  ],
+  'Sgp | Logs': [
+    'SeverityText',
+    'ServiceName',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "ResourceAttributes['k8s.container.name']",
+    "ResourceAttributes['label.team']",
+    "ResourceAttributes['label.pod']",   
+  ],
+  'Sgp | K8s Events': [
     'SeverityText',
     "ResourceAttributes['k8s.cluster.name']",
     "ResourceAttributes['k8s.namespace.name']",
@@ -68,20 +105,6 @@ const getKeysForSourceType = (sourceName?: string, connectionName?: string) => {
   if (newSourceKey && newSourceKey in serviceMapOverride) {
     return serviceMapOverride[newSourceKey as keyof typeof serviceMapOverride];
   }
-
-  if (sourceName) {
-    const lowerSourceName = sourceName.toLowerCase();
-    if (lowerSourceName.includes('logs')) {
-      return serviceMapOverride.Logs || [];
-    }
-    if (lowerSourceName.includes('traces')) {
-      return serviceMapOverride.Traces || [];
-    }
-    if (lowerSourceName.includes('k8s')) {
-      return serviceMapOverride.K8sEvents || [];
-    }
-  }
-
   return [];
 };
 
@@ -544,13 +567,11 @@ const DBSearchPageFiltersComponent = ({
 
   const showRefreshButton = isLive && dateRange !== chartConfig.dateRange;
 
-  const keyLimit = 20;
-  // Build a config for facets that ignores currently applied filters, so options are not narrowed
+  const keyLimit = 200;
+  // Build a config for facets that respects the current query (WHERE and filters)
   const facetsChartConfig = useMemo(() => {
-    const { filters, where, orderBy, ...rest } = chartConfig as any;
     return {
-      ...rest,
-      where: '',
+      ...(chartConfig as any),
       orderBy: undefined,
     } as ChartConfigWithDateRange;
   }, [chartConfig]);

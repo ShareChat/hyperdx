@@ -465,7 +465,7 @@ export class ClickhouseClient {
     );
     // Apply global defaults for all queries
     clickhouse_settings = {
-      max_rows_to_read: '3000000',
+      max_rows_to_read: '10000000',
       read_overflow_mode: 'break',
       ...clickhouse_settings,
     } as ClickHouseSettings;
