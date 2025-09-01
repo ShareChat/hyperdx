@@ -74,7 +74,7 @@ const serviceMapOverride = {
     "ResourceAttributes['k8s.container.name']",
     "ResourceAttributes['label.team']",
     "ResourceAttributes['label.pod']",
-    "ResourceAttributes['label.pod']",   
+    "ResourceAttributes['label.pod']",
   ],
   'US | K8s Events': [
     'SeverityText',
@@ -89,7 +89,7 @@ const serviceMapOverride = {
     "ResourceAttributes['k8s.namespace.name']",
     "ResourceAttributes['k8s.container.name']",
     "ResourceAttributes['label.team']",
-    "ResourceAttributes['label.pod']",   
+    "ResourceAttributes['label.pod']",
   ],
   'Sgp | K8s Events': [
     'SeverityText',
