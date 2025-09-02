@@ -174,34 +174,34 @@ export function DBRowJsonViewer({
 
       // Add to Filters action (strings only)
       // FIXME: TOTAL HACK To disallow adding timestamp to filters
-      if (
-        onPropertyAddClick != null &&
-        typeof value === 'string' &&
-        value &&
-        fieldPath != 'Timestamp' &&
-        fieldPath != 'TimestampTime'
-      ) {
-        actions.push({
-          key: 'add-to-search',
-          label: (
-            <>
-              <i className="bi bi-funnel-fill me-1" />
-              Add to Filters
-            </>
-          ),
-          title: 'Add to Filters',
-          onClick: () => {
-            onPropertyAddClick(
-              isJsonColumn ? `toString(${fieldPath})` : fieldPath,
-              value,
-            );
-            notifications.show({
-              color: 'green',
-              message: `Added "${fieldPath} = ${value}" to filters`,
-            });
-          },
-        });
-      }
+      // if (
+      //   onPropertyAddClick != null &&
+      //   typeof value === 'string' &&
+      //   value &&
+      //   fieldPath != 'Timestamp' &&
+      //   fieldPath != 'TimestampTime'
+      // ) {
+      //   actions.push({
+      //     key: 'add-to-search',
+      //     label: (
+      //       <>
+      //         <i className="bi bi-funnel-fill me-1" />
+      //         Add to Filters
+      //       </>
+      //     ),
+      //     title: 'Add to Filters',
+      //     onClick: () => {
+      //       onPropertyAddClick(
+      //         isJsonColumn ? `toString(${fieldPath})` : fieldPath,
+      //         value,
+      //       );
+      //       notifications.show({
+      //         color: 'green',
+      //         message: `Added "${fieldPath} = ${value}" to filters`,
+      //       });
+      //     },
+      //   });
+      // }
 
       if (generateSearchUrl && typeof value !== 'object') {
         actions.push({
