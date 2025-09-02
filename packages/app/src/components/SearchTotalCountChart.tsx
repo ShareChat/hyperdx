@@ -4,6 +4,7 @@ import { Text } from '@mantine/core';
 import { keepPreviousData } from '@tanstack/react-query';
 
 import { useTimeChartSettings } from '@/ChartUtils';
+import { HDX_METADATA_MAX_ROWS_TO_READ } from '@/config';
 import { useQueriedChartConfig } from '@/hooks/useChartConfig';
 
 export function useSearchTotalCount(
@@ -26,6 +27,10 @@ export function useSearchTotalCount(
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData, // no need to flash loading state when in live tail
+    clickhouseSettings: {
+      // Override only for this API
+      max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ.toString(),
+    },
   });
 
   const totalCount = useMemo(() => {

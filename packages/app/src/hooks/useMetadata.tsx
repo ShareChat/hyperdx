@@ -17,6 +17,7 @@ import {
 } from '@tanstack/react-query';
 
 import api from '@/api';
+import { HDX_METADATA_MAX_ROWS_TO_READ } from '@/config';
 import { getMetadata } from '@/metadata';
 import { toArray } from '@/utils';
 
@@ -100,11 +101,9 @@ export function useAllFields(
       }
 
       // TODO: set the settings at the top level so that it doesn't have to be set for each useQuery
-      if (team?.metadataMaxRowsToRead) {
-        metadata.setClickHouseSettings({
-          max_rows_to_read: team.metadataMaxRowsToRead,
-        });
-      }
+      metadata.setClickHouseSettings({
+        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ,
+      });
 
       const fields2d = await Promise.all(
         tableConnections.map(tc => metadata.getAllFields(tc)),
@@ -181,11 +180,9 @@ export function useGetKeyValues(
       const team = me?.team;
 
       // TODO: set the settings at the top level so that it doesn't have to be set for each useQuery
-      if (team?.metadataMaxRowsToRead) {
-        metadata.setClickHouseSettings({
-          max_rows_to_read: team.metadataMaxRowsToRead,
-        });
-      }
+      metadata.setClickHouseSettings({
+        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ,
+      });
       return (
         await Promise.all(
           chartConfigsArr.map(chartConfig =>

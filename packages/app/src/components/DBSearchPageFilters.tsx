@@ -32,6 +32,8 @@ import classes from '../../styles/SearchPage.module.scss';
 // Override keys for specific source types
 const serviceMapOverride = {
   'Mum | Logs': [
+    "ResourceAttributes['cloud']",
+    "LogAttributes['log.iostream']",
     'SeverityText',
     'ServiceName',
     "ResourceAttributes['k8s.cluster.name']",
@@ -41,6 +43,7 @@ const serviceMapOverride = {
     "ResourceAttributes['label.pod']",
   ],
   'Mum | Traces': [
+    "ResourceAttributes['cloud']",
     'ServiceName',
     'StatusCode',
     'SpanKind',
@@ -51,12 +54,15 @@ const serviceMapOverride = {
     "ResourceAttributes['label.pod']",
   ],
   'Mum | K8s Events': [
+    "ResourceAttributes['cloud']",
     'SeverityText',
     "ResourceAttributes['k8s.cluster.name']",
     "ResourceAttributes['k8s.namespace.name']",
     "LogAttributes['k8s.event.reason']",
   ],
   'US | Logs': [
+    "ResourceAttributes['cloud']",
+    "LogAttributes['log.iostream']",
     'SeverityText ',
     'ServiceName',
     "ResourceAttributes['k8s.cluster.name']",
@@ -66,6 +72,7 @@ const serviceMapOverride = {
     "ResourceAttributes['label.pod']",
   ],
   'US | Traces': [
+    "ResourceAttributes['cloud']",
     'ServiceName',
     'StatusCode',
     'SpanKind',
@@ -77,12 +84,15 @@ const serviceMapOverride = {
     "ResourceAttributes['label.pod']",
   ],
   'US | K8s Events': [
+    "ResourceAttributes['cloud']",
     'SeverityText',
     "ResourceAttributes['k8s.cluster.name']",
     "ResourceAttributes['k8s.namespace.name']",
     "LogAttributes['k8s.event.reason']",
   ],
   'Sgp | Logs': [
+    "ResourceAttributes['cloud']",
+    "LogAttributes['log.iostream']",
     'SeverityText',
     'ServiceName',
     "ResourceAttributes['k8s.cluster.name']",
@@ -92,6 +102,7 @@ const serviceMapOverride = {
     "ResourceAttributes['label.pod']",
   ],
   'Sgp | K8s Events': [
+    "ResourceAttributes['cloud']",
     'SeverityText',
     "ResourceAttributes['k8s.cluster.name']",
     "ResourceAttributes['k8s.namespace.name']",
