@@ -13,7 +13,7 @@ export const HDX_DISABLE_METADATA_FIELD_FETCH = env(
 );
 export const HDX_AUTH_EMAILS = env('NEXT_PUBLIC_HDX_AUTH_EMAILS');
 export const HDX_METADATA_MAX_ROWS_TO_READ = Number(
-  env('NEXT_PUBLIC_HDX_METADATA_MAX_ROWS_TO_READ') ?? '31000000'
+  env('NEXT_PUBLIC_HDX_METADATA_MAX_ROWS_TO_READ') ?? '31000000',
 );
 export const NODE_ENV = process.env.NODE_ENV as string;
 export const HDX_API_KEY = process.env.HYPERDX_API_KEY as string; // for nextjs server
