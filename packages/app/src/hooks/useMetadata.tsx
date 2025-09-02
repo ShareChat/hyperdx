@@ -102,7 +102,7 @@ export function useAllFields(
 
       // TODO: set the settings at the top level so that it doesn't have to be set for each useQuery
       metadata.setClickHouseSettings({
-        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ,
+        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ.toString(),
       });
 
       const fields2d = await Promise.all(
@@ -181,7 +181,7 @@ export function useGetKeyValues(
 
       // TODO: set the settings at the top level so that it doesn't have to be set for each useQuery
       metadata.setClickHouseSettings({
-        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ,
+        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ.toString(),
       });
       return (
         await Promise.all(
