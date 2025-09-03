@@ -15,6 +15,9 @@ export const HDX_AUTH_EMAILS = env('NEXT_PUBLIC_HDX_AUTH_EMAILS');
 export const HDX_METADATA_MAX_ROWS_TO_READ = Number(
   env('NEXT_PUBLIC_HDX_METADATA_MAX_ROWS_TO_READ') ?? '31000000',
 );
+export const HDX_DEFAULT_PAGE_SIZE = Number(
+  env('NEXT_PUBLIC_HDX_DEFAULT_PAGE_SIZE') ?? '3400',
+);
 export const NODE_ENV = process.env.NODE_ENV as string;
 export const HDX_API_KEY = process.env.HYPERDX_API_KEY as string; // for nextjs server
 export const HDX_SERVICE_NAME =

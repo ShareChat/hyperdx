@@ -18,6 +18,7 @@ import {
 import { getClickhouseClient } from '@/clickhouse';
 import { getMetadata } from '@/metadata';
 import { omit } from '@/utils';
+import { HDX_METADATA_MAX_ROWS_TO_READ, HDX_DEFAULT_PAGE_SIZE } from '@/config';
 
 function queryKeyFn(prefix: string, config: ChartConfigWithDateRange) {
   return [prefix, config] as const;
@@ -70,7 +71,7 @@ const queryFn: QueryFunction<
       abort_signal: signal,
       connectionId: config.connection,
       clickhouse_settings: {
-        max_rows_to_read: '91000000',
+        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ,
       },
     });
 
@@ -245,7 +246,7 @@ export default function useOffsetPaginatedQuery(
     isLive,
     enabled = true,
     queryKeyPrefix = '',
-    pageSize = 3400,
+    pageSize = HDX_DEFAULT_PAGE_SIZE,
   }: {
     isLive?: boolean;
     enabled?: boolean;
