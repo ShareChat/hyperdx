@@ -80,7 +80,14 @@ export default function ContextSubpanel({
   const { whereLanguage: originalLanguage = 'lucene' } =
     dbSqlRowTableConfig ?? {};
   const [range, setRange] = useState<number>(ms('30s'));
-  const [contextBy, setContextBy] = useState<ContextBy>(ContextBy.All);
+  
+  // Extract pod name to determine initial context
+  const k8sPodName = rowData.ResourceAttributes?.['k8s.pod.name'];
+  
+  // Select Pod context if pod is present, otherwise default to All
+  const [contextBy, setContextBy] = useState<ContextBy>(
+    k8sPodName ? ContextBy.Pod : ContextBy.All
+  );
   const { control, watch } = useForm({
     defaultValues: {
       where: '',
@@ -135,10 +142,10 @@ export default function ContextSubpanel({
   */
   const {
     'k8s.node.name': k8sNodeName,
-    'k8s.pod.name': k8sPodName,
     'host.name': host,
     'service.name': service,
   } = rowData.ResourceAttributes ?? {};
+  // k8sPodName is already extracted above for initial state logic
 
   const CONTEXT_MAPPING = useMemo(
     () =>
