@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from 'react';
-import { sq } from 'date-fns/locale';
 import ms from 'ms';
 import { parseAsString, useQueryState } from 'nuqs';
 import { useForm } from 'react-hook-form';
@@ -80,13 +79,13 @@ export default function ContextSubpanel({
   const { whereLanguage: originalLanguage = 'lucene' } =
     dbSqlRowTableConfig ?? {};
   const [range, setRange] = useState<number>(ms('30s'));
-  
+
   // Extract pod name to determine initial context
   const k8sPodName = rowData.ResourceAttributes?.['k8s.pod.name'];
-  
+
   // Select Pod context if pod is present, otherwise default to All
   const [contextBy, setContextBy] = useState<ContextBy>(
-    k8sPodName ? ContextBy.Pod : ContextBy.All
+    k8sPodName ? ContextBy.Pod : ContextBy.All,
   );
   const { control, watch } = useForm({
     defaultValues: {
