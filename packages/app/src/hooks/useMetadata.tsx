@@ -196,9 +196,8 @@ export function useGetKeyValues(
         )
       ).flatMap(v => v);
     },
-    staleTime: 1000 * 60 * 5, // Cache every 5 min
+    staleTime: 1000 * 30, // Cache for 30 seconds - shorter cache to prevent stale filter data
     enabled: !!keys.length && isFetched,
-    placeholderData: keepPreviousData,
     ...options,
   });
 }

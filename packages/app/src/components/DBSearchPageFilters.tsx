@@ -576,6 +576,18 @@ const DBSearchPageFiltersComponent = ({
     }
   }, [chartConfig.dateRange, isLive]);
 
+  // Clear extraFacets when the chart configuration changes significantly
+  // This prevents old filter data from persisting between different searches
+  useEffect(() => {
+    setExtraFacets({});
+  }, [
+    chartConfig.from.tableName,
+    chartConfig.from.databaseName,
+    chartConfig.connection,
+    JSON.stringify(chartConfig.where),
+    JSON.stringify(chartConfig.filters),
+  ]);
+
   const showRefreshButton = isLive && dateRange !== chartConfig.dateRange;
 
   const keyLimit = 200;
