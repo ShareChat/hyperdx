@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import ms from 'ms';
+
 import { ResponseJSON, Row } from '@clickhouse/client-web';
 import {
   ChSql,
@@ -14,11 +14,12 @@ import {
   useInfiniteQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import ms from 'ms';
 
 import { getClickhouseClient } from '@/clickhouse';
+import { HDX_DEFAULT_PAGE_SIZE, HDX_METADATA_MAX_ROWS_TO_READ } from '@/config';
 import { getMetadata } from '@/metadata';
 import { omit } from '@/utils';
-import { HDX_METADATA_MAX_ROWS_TO_READ, HDX_DEFAULT_PAGE_SIZE } from '@/config';
 
 function queryKeyFn(prefix: string, config: ChartConfigWithDateRange) {
   return [prefix, config] as const;
