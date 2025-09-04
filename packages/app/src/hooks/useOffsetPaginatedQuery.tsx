@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-
 import { ResponseJSON, Row } from '@clickhouse/client-web';
 import {
   ChSql,
