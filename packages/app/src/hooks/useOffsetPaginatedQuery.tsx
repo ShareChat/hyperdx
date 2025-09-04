@@ -71,7 +71,7 @@ const queryFn: QueryFunction<
       abort_signal: signal,
       connectionId: config.connection,
       clickhouse_settings: {
-        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ,
+        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ.toString(),
       },
     });
 
