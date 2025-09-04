@@ -527,7 +527,7 @@ export const RawLogTable = memo(
     // Scroll to log id if it's not in window yet
     const [scrolledToHighlightedLine, setScrolledToHighlightedLine] =
       useState(false);
-    const [wrapLinesEnabled, setWrapLinesEnabled] = useState(wrapLines);
+    const [wrapLinesEnabled, setWrapLinesEnabled] = useState(true);
 
     useEffect(() => {
       if (

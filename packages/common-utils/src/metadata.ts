@@ -15,7 +15,7 @@ import type { ChartConfig, ChartConfigWithDateRange, TSource } from '@/types';
 
 // If filters initially are taking too long to load, decrease this number.
 // Between 1e6 - 5e6 is a good range.
-export const DEFAULT_METADATA_MAX_ROWS_TO_READ = 3e6;
+export const DEFAULT_METADATA_MAX_ROWS_TO_READ = 10e6;
 
 export class MetadataCache {
   private cache = new Map<string, any>();
@@ -448,7 +448,7 @@ export class Metadata {
   async getKeyValues({
     chartConfig,
     keys,
-    limit = 20,
+    limit = 1000,
     disableRowLimit = false,
   }: {
     chartConfig: ChartConfigWithDateRange;
@@ -456,8 +456,21 @@ export class Metadata {
     limit?: number;
     disableRowLimit?: boolean;
   }) {
+    // Include where/filters/connection in cache key so results change with query updates
+    const cacheKey = [
+      chartConfig.from.databaseName,
+      chartConfig.from.tableName,
+      keys.join(','),
+      chartConfig.dateRange.toString(),
+      String(disableRowLimit),
+      chartConfig.connection ?? '',
+      chartConfig.whereLanguage ?? '',
+      chartConfig.where ?? '',
+      JSON.stringify(chartConfig.filters ?? []),
+    ].join('.');
+
     return this.cache.getOrFetch(
-      `${chartConfig.from.databaseName}.${chartConfig.from.tableName}.${keys.join(',')}.${chartConfig.dateRange.toString()}.${disableRowLimit}.values`,
+      `${cacheKey}.values`,
       async () => {
         const sql = await renderChartConfig(
           {

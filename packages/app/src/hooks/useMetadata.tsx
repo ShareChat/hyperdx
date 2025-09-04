@@ -17,6 +17,7 @@ import {
 } from '@tanstack/react-query';
 
 import api from '@/api';
+import { HDX_METADATA_MAX_ROWS_TO_READ } from '@/config';
 import { getMetadata } from '@/metadata';
 import { toArray } from '@/utils';
 
@@ -100,11 +101,9 @@ export function useAllFields(
       }
 
       // TODO: set the settings at the top level so that it doesn't have to be set for each useQuery
-      if (team?.metadataMaxRowsToRead) {
-        metadata.setClickHouseSettings({
-          max_rows_to_read: team.metadataMaxRowsToRead,
-        });
-      }
+      metadata.setClickHouseSettings({
+        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ.toString(),
+      });
 
       const fields2d = await Promise.all(
         tableConnections.map(tc => metadata.getAllFields(tc)),
@@ -181,27 +180,24 @@ export function useGetKeyValues(
       const team = me?.team;
 
       // TODO: set the settings at the top level so that it doesn't have to be set for each useQuery
-      if (team?.metadataMaxRowsToRead) {
-        metadata.setClickHouseSettings({
-          max_rows_to_read: team.metadataMaxRowsToRead,
-        });
-      }
+      metadata.setClickHouseSettings({
+        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ.toString(),
+      });
       return (
         await Promise.all(
           chartConfigsArr.map(chartConfig =>
             metadata.getKeyValues({
               chartConfig,
-              keys: keys.slice(0, 20), // Limit to 20 keys for now, otherwise request fails (max header size)
-              limit,
+              keys: keys.slice(0, 50), // Limit to 50 keys for now, otherwise request fails (max header size)
+              limit: 1000,
               disableRowLimit,
             }),
           ),
         )
       ).flatMap(v => v);
     },
-    staleTime: 1000 * 60 * 5, // Cache every 5 min
+    staleTime: 1000 * 30, // Cache for 30 seconds - shorter cache to prevent stale filter data
     enabled: !!keys.length && isFetched,
-    placeholderData: keepPreviousData,
     ...options,
   });
 }

@@ -29,6 +29,96 @@ import { mergePath } from '@/utils';
 import resizeStyles from '../../styles/ResizablePanel.module.scss';
 import classes from '../../styles/SearchPage.module.scss';
 
+// Override keys for specific source types
+const serviceMapOverride = {
+  'Mum | Logs': [
+    "ResourceAttributes['cloud']",
+    "LogAttributes['log.iostream']",
+    'SeverityText',
+    'ServiceName',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "ResourceAttributes['k8s.container.name']",
+    "ResourceAttributes['label.team']",
+    "ResourceAttributes['label.pod']",
+  ],
+  'Mum | Traces': [
+    "ResourceAttributes['cloud']",
+    'ServiceName',
+    'StatusCode',
+    'SpanKind',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "ResourceAttributes['k8s.container.name']",
+    "ResourceAttributes['label.team']",
+    "ResourceAttributes['label.pod']",
+  ],
+  'Mum | K8s Events': [
+    "ResourceAttributes['cloud']",
+    'SeverityText',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "LogAttributes['k8s.event.reason']",
+  ],
+  'US | Logs': [
+    "ResourceAttributes['cloud']",
+    "LogAttributes['log.iostream']",
+    'SeverityText ',
+    'ServiceName',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "ResourceAttributes['k8s.container.name']",
+    "ResourceAttributes['label.team']",
+    "ResourceAttributes['label.pod']",
+  ],
+  'US | Traces': [
+    "ResourceAttributes['cloud']",
+    'ServiceName',
+    'StatusCode',
+    'SpanKind',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "ResourceAttributes['k8s.container.name']",
+    "ResourceAttributes['label.team']",
+    "ResourceAttributes['label.pod']",
+    "ResourceAttributes['label.pod']",
+  ],
+  'US | K8s Events': [
+    "ResourceAttributes['cloud']",
+    'SeverityText',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "LogAttributes['k8s.event.reason']",
+  ],
+  'Sgp | Logs': [
+    "ResourceAttributes['cloud']",
+    "LogAttributes['log.iostream']",
+    'SeverityText',
+    'ServiceName',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "ResourceAttributes['k8s.container.name']",
+    "ResourceAttributes['label.team']",
+    "ResourceAttributes['label.pod']",
+  ],
+  'Sgp | K8s Events': [
+    "ResourceAttributes['cloud']",
+    'SeverityText',
+    "ResourceAttributes['k8s.cluster.name']",
+    "ResourceAttributes['k8s.namespace.name']",
+    "LogAttributes['k8s.event.reason']",
+  ],
+};
+
+// Helper function to get keys - override for specific types, use default for others
+const getKeysForSourceType = (sourceName?: string, connectionName?: string) => {
+  const newSourceKey = connectionName + ' | ' + sourceName;
+  if (newSourceKey && newSourceKey in serviceMapOverride) {
+    return serviceMapOverride[newSourceKey as keyof typeof serviceMapOverride];
+  }
+  return [];
+};
+
 type FilterCheckboxProps = {
   label: string;
   value?: 'included' | 'excluded' | false;
@@ -63,7 +153,9 @@ export const TextButton = ({
   );
 };
 
-const emptyFn = () => {};
+const emptyFn = () => {
+  // Intentionally empty - onChange is handled by parent Group's onClick
+};
 export const FilterCheckbox = ({
   value,
   label,
@@ -172,6 +264,12 @@ export const FilterGroup = ({
   const [search, setSearch] = useState('');
   const [isExpanded, setExpanded] = useState(false);
 
+  useEffect(() => {
+    if (onLoadMore && !hasLoadedMore) {
+      onLoadMore(name);
+    }
+  }, [onLoadMore, hasLoadedMore, name]);
+
   const augmentedOptions = useMemo(() => {
     const selectedSet = new Set([
       ...selectedValues.included,
@@ -237,7 +335,7 @@ export const FilterGroup = ({
           selectedValues.included.size + selectedValues.excluded.size,
         ),
       );
-  }, [search, isExpanded, augmentedOptions, selectedValues]);
+  }, [search, isExpanded, augmentedOptions, selectedValues, isPinned]);
 
   const showExpandButton =
     !search &&
@@ -381,30 +479,55 @@ const DBSearchPageFiltersComponent = ({
   analysisMode,
   setAnalysisMode,
   sourceId,
+  sourceType,
   showDelta,
   denoiseResults,
   setDenoiseResults,
+  sourceName,
+  connectionName,
 }: {
   analysisMode: 'results' | 'delta' | 'pattern';
   setAnalysisMode: (mode: 'results' | 'delta' | 'pattern') => void;
   isLive: boolean;
   chartConfig: ChartConfigWithDateRange;
   sourceId?: string;
+  sourceType?: string;
   showDelta: boolean;
   denoiseResults: boolean;
   setDenoiseResults: (denoiseResults: boolean) => void;
+  sourceName?: string;
+  connectionName?: string;
 } & FilterStateHook) => {
-  const {
-    toggleFilterPin,
-    toggleFieldPin,
-    isFilterPinned,
-    isFieldPinned,
-    getPinnedFields,
-  } = usePinnedFilters(sourceId ?? null);
+  // Log all component props and variables
+  console.error('🚀 DBSearchPageFiltersComponent - ALL PROPS AND VARIABLES:');
+  console.error('📋 Main Props:');
+  console.error('  - analysisMode:', analysisMode);
+  console.error('  - isLive:', isLive);
+  console.error('  - sourceId:', sourceId);
+  console.error('  - sourceType:', sourceType);
+  console.error('  - showDelta:', showDelta);
+  console.error('  - denoiseResults:', denoiseResults);
+  console.error('  - chartConfig:', chartConfig);
+  console.error('📊 FilterStateHook Props:');
+  console.error('  - filters (filterState):', filterState);
+  console.error('  - clearAllFilters function:', typeof clearAllFilters);
+  console.error('  - clearFilter function:', typeof clearFilter);
+  console.error('  - setFilterValue function:', typeof setFilterValue);
+  console.error('🔧 Hook Results:');
+
+  const { toggleFilterPin, toggleFieldPin, isFilterPinned, isFieldPinned } =
+    usePinnedFilters(sourceId ?? null);
+
+  console.error('  - toggleFilterPin function:', typeof toggleFilterPin);
+  console.error('  - toggleFieldPin function:', typeof toggleFieldPin);
+  console.error('  - isFilterPinned function:', typeof isFilterPinned);
+  console.error('  - isFieldPinned function:', typeof isFieldPinned);
+
   const { width, startResize } = useResizable(16, 'left');
+  console.error('  - width:', width);
+  console.error('  - startResize function:', typeof startResize);
 
   const { data: countData } = useExplainQuery(chartConfig);
-  const numRows: number = countData?.[0]?.rows ?? 0;
 
   const { data, isLoading } = useAllFields({
     databaseName: chartConfig.from.databaseName,
@@ -412,42 +535,34 @@ const DBSearchPageFiltersComponent = ({
     connectionId: chartConfig.connection,
   });
 
+  console.error('  - countData:', countData);
+  console.error('  - allFields data:', data);
+  console.error('  - allFields isLoading:', isLoading);
+  console.error('📊 State Variables:');
+
   const [showMoreFields, setShowMoreFields] = useState(false);
+  console.error('  - showMoreFields:', showMoreFields);
+  console.error('  - setShowMoreFields function:', typeof setShowMoreFields);
+  console.error('🚀 END OF COMPONENT PROPS LOGGING 🚀');
+  console.error('');
+
+  const fieldKeys = useMemo(() => {
+    const fields = data ?? [];
+    // Map Field.path to SQL-style key notation used in filters (e.g., ResourceAttributes['k8s.namespace.name'])
+    const keys = new Set<string>();
+    for (const f of fields as any[]) {
+      if (f?.path && Array.isArray(f.path)) {
+        const key = mergePath(f.path);
+        if (key) keys.add(key);
+      }
+    }
+    return Array.from(keys);
+  }, [data]);
 
   const keysToFetch = useMemo(() => {
-    if (!data) {
-      return [];
-    }
-
-    const strings = data
-      .sort((a, b) => {
-        // First show low cardinality fields
-        const isLowCardinality = (type: string) =>
-          type.includes('LowCardinality');
-        return isLowCardinality(a.type) && !isLowCardinality(b.type) ? -1 : 1;
-      })
-      .filter(
-        field => field.jsType && ['string'].includes(field.jsType),
-        // todo: add number type with sliders :D
-      )
-      .map(({ path, type }) => {
-        return { type, path: mergePath(path) };
-      })
-      .filter(
-        field =>
-          showMoreFields ||
-          field.type.includes('LowCardinality') || // query only low cardinality fields by default
-          Object.keys(filterState).includes(field.path) || // keep selected fields
-          isFieldPinned(field.path), // keep pinned fields
-      )
-      .map(({ path }) => path)
-      .filter(
-        path =>
-          !['body', 'timestamp', '_hdx_body'].includes(path.toLowerCase()),
-      );
-
-    return strings;
-  }, [data, filterState, showMoreFields]);
+    const overrides = getKeysForSourceType(sourceName, connectionName);
+    return overrides;
+  }, [sourceName, connectionName]);
 
   // Special case for live tail
   const [dateRange, setDateRange] = useState<[Date, Date]>(
@@ -461,20 +576,40 @@ const DBSearchPageFiltersComponent = ({
     }
   }, [chartConfig.dateRange, isLive]);
 
+  // Clear extraFacets when the chart configuration changes significantly
+  // This prevents old filter data from persisting between different searches
+  useEffect(() => {
+    setExtraFacets({});
+  }, [
+    chartConfig.from.tableName,
+    chartConfig.from.databaseName,
+    chartConfig.connection,
+    JSON.stringify(chartConfig.where),
+    JSON.stringify(chartConfig.filters),
+  ]);
+
   const showRefreshButton = isLive && dateRange !== chartConfig.dateRange;
 
-  const keyLimit = 20;
+  const keyLimit = 200;
+  // Build a config for facets that respects the current query (WHERE and filters)
+  const facetsChartConfig = useMemo(() => {
+    return {
+      ...(chartConfig as any),
+      orderBy: undefined,
+    } as ChartConfigWithDateRange;
+  }, [chartConfig]);
   const {
     data: facets,
     isLoading: isFacetsLoading,
     isFetching: isFacetsFetching,
   } = useGetKeyValues({
-    chartConfigs: { ...chartConfig, dateRange },
+    chartConfigs: { ...facetsChartConfig, dateRange },
     limit: keyLimit,
     keys: keysToFetch,
   });
 
   const [extraFacets, setExtraFacets] = useState<Record<string, string[]>>({});
+
   const [loadMoreLoadingKeys, setLoadMoreLoadingKeys] = useState<Set<string>>(
     new Set(),
   );
@@ -485,7 +620,7 @@ const DBSearchPageFiltersComponent = ({
         const metadata = getMetadata();
         const newKeyVals = await metadata.getKeyValues({
           chartConfig: {
-            ...chartConfig,
+            ...facetsChartConfig,
             dateRange,
           },
           keys: [key],
@@ -509,17 +644,16 @@ const DBSearchPageFiltersComponent = ({
         });
       }
     },
-    [chartConfig, setExtraFacets, dateRange],
+    [chartConfig, setExtraFacets, dateRange, sourceType],
   );
 
   const shownFacets = useMemo(() => {
     const _facets: { key: string; value: string[] }[] = [];
+
+    //for filters
     for (const facet of facets ?? []) {
-      // don't include empty facets, unless they are already selected
-      const filter = filterState[facet.key];
-      const hasSelectedValues =
-        filter && (filter.included.size > 0 || filter.excluded.size > 0);
-      if (facet.value?.length > 0 || hasSelectedValues) {
+      // Only include non-empty facets from the server; ignore current selections
+      if (facet.value?.length > 0) {
         const extraValues = extraFacets[facet.key];
         if (extraValues && extraValues.length > 0) {
           const allValues = facet.value.slice();
@@ -537,13 +671,6 @@ const DBSearchPageFiltersComponent = ({
         }
       }
     }
-    // get remaining filterState that are not in _facets
-    const remainingFilterState = Object.keys(filterState).filter(
-      key => !_facets.some(facet => facet.key === key),
-    );
-    for (const key of remainingFilterState) {
-      _facets.push({ key, value: Array.from(filterState[key].included) });
-    }
 
     // Any other keys, let's add them in with empty values
     for (const key of keysToFetch) {
@@ -560,7 +687,7 @@ const DBSearchPageFiltersComponent = ({
     });
 
     return _facets;
-  }, [facets, filterState, extraFacets, keysToFetch, isFieldPinned]);
+  }, [facets, extraFacets, keysToFetch, isFieldPinned]);
 
   const showClearAllButton = useMemo(
     () =>

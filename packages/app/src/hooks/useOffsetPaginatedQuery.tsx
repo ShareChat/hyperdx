@@ -16,6 +16,7 @@ import {
 } from '@tanstack/react-query';
 
 import { getClickhouseClient } from '@/clickhouse';
+import { HDX_DEFAULT_PAGE_SIZE, HDX_METADATA_MAX_ROWS_TO_READ } from '@/config';
 import { getMetadata } from '@/metadata';
 import { omit } from '@/utils';
 
@@ -43,6 +44,7 @@ const queryFn: QueryFunction<
     throw new Error('Query missing client meta');
   }
   const queryClient = meta.queryClient as QueryClient;
+  const pageSize = (meta as any).pageSize as number;
   // Only stream incrementally if this is a fresh query with no previous
   // response or if it's a paginated query
   // otherwise we'll flicker the UI with streaming data
@@ -53,7 +55,7 @@ const queryFn: QueryFunction<
     {
       ...config,
       limit: {
-        limit: config.limit?.limit,
+        limit: pageSize,
         offset: pageParam,
       },
     },
@@ -68,6 +70,9 @@ const queryFn: QueryFunction<
       format: 'JSONCompactEachRowWithNamesAndTypes',
       abort_signal: signal,
       connectionId: config.connection,
+      clickhouse_settings: {
+        max_rows_to_read: HDX_METADATA_MAX_ROWS_TO_READ.toString(),
+      },
     });
 
   const stream = resultSet.stream();
@@ -241,10 +246,12 @@ export default function useOffsetPaginatedQuery(
     isLive,
     enabled = true,
     queryKeyPrefix = '',
+    pageSize = HDX_DEFAULT_PAGE_SIZE,
   }: {
     isLive?: boolean;
     enabled?: boolean;
     queryKeyPrefix?: string;
+    pageSize?: number;
   } = {},
 ) {
   const key = queryKeyFn(queryKeyPrefix, config);
@@ -289,15 +296,21 @@ export default function useOffsetPaginatedQuery(
         return undefined;
       }
 
+      // If we got less data than the page size, we've reached the end
+      if (len < pageSize) {
+        return undefined;
+      }
+
       const data = flattenPages(allPages);
 
-      // TODO: Need to configure overlap and account for granularity
+      // Next offset is the total number of records fetched so far
       return data.length;
     },
     staleTime: Infinity, // TODO: Pick a correct time
     meta: {
       queryClient,
       hasPreviousQueries,
+      pageSize,
     },
     queryFn,
     gcTime: isLive ? ms('30s') : ms('5m'), // more aggressive gc for live data, since it can end up holding lots of data

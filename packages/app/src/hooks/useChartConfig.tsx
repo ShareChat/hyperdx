@@ -21,6 +21,7 @@ import { getMetadata } from '@/metadata';
 
 interface AdditionalUseQueriedChartConfigOptions {
   onError?: (error: Error | ClickHouseQueryError) => void;
+  clickhouseSettings?: Record<string, any>;
 }
 
 // used for charting
@@ -50,6 +51,7 @@ export function useQueriedChartConfig(
         metadata: getMetadata(),
         opts: {
           abort_signal: signal,
+          clickhouse_settings: options?.clickhouseSettings,
         },
       });
     },

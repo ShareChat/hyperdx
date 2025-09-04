@@ -284,6 +284,7 @@ export default function AutocompleteInput({
               if (queryHistoryType && value) {
                 setQueryHistory(value);
               }
+              setIsInputDropdownOpen(false); // Close suggestion box on Enter
               onSubmit?.();
             }
           }

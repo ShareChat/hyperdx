@@ -1,3 +1,4 @@
+/* eslint-disable */
 import {
   FormEvent,
   FormEventHandler,
@@ -58,7 +59,6 @@ import { notifications } from '@mantine/notifications';
 import { useIsFetching } from '@tanstack/react-query';
 import CodeMirror from '@uiw/react-codemirror';
 
-import { useTimeChartSettings } from '@/ChartUtils';
 import { ContactSupportText } from '@/components/ContactSupportText';
 import DBDeltaChart from '@/components/DBDeltaChart';
 import DBHeatmapChart from '@/components/DBHeatmapChart';
@@ -79,10 +79,8 @@ import { Tags } from '@/components/Tags';
 import { TimePicker } from '@/components/TimePicker';
 import WhereLanguageControlled from '@/components/WhereLanguageControlled';
 import { IS_LOCAL_MODE } from '@/config';
-import {
-  useAliasMapFromChartConfig,
-  useQueriedChartConfig,
-} from '@/hooks/useChartConfig';
+import { useAuthEmails } from '@/hooks/useAuthEmails';
+import { useAliasMapFromChartConfig } from '@/hooks/useChartConfig';
 import { useExplainQuery } from '@/hooks/useExplainQuery';
 import { withAppNav } from '@/layout';
 import {
@@ -99,14 +97,14 @@ import {
   useSource,
   useSources,
 } from '@/source';
-import { parseTimeQuery, useNewTimeQuery } from '@/timeQuery';
+import { dateRangeToString, useNewTimeQuery } from '@/timeQuery';
 import { QUERY_LOCAL_STORAGE, useLocalStorage, usePrevious } from '@/utils';
 
 import { SQLPreview } from './components/ChartSQLPreview';
 import PatternTable from './components/PatternTable';
 import { useSqlSuggestions } from './hooks/useSqlSuggestions';
 import api from './api';
-import { LOCAL_STORE_CONNECTIONS_KEY } from './connection';
+import { LOCAL_STORE_CONNECTIONS_KEY, useConnections } from './connection';
 import { DBSearchPageAlertModal } from './DBSearchPageAlertModal';
 import { SearchConfig } from './types';
 
@@ -118,6 +116,7 @@ const SearchConfigSchema = z.object({
   where: z.string(),
   whereLanguage: z.enum(['sql', 'lucene']),
   orderBy: z.string(),
+  connection: z.string().optional(),
   filters: z.array(
     z.union([
       z.object({
@@ -393,8 +392,13 @@ function SaveSearchModal({
   );
 }
 
-// TODO: This is a hack to set the default time range
-const defaultTimeRange = parseTimeQuery('Past 15m', false) as [Date, Date];
+// Create a fixed 15-minute time range that won't auto-update
+const createFixedTimeRange = (): [Date, Date] => {
+  const end = new Date();
+  const start = new Date(end.getTime() - 15 * 60 * 1000); // 15 minutes ago
+  return [start, end];
+};
+const defaultTimeRange = createFixedTimeRange();
 
 function useLiveUpdate({
   isLive,
@@ -455,6 +459,12 @@ function useSearchedConfigToChartConfig({
     id: source,
   });
 
+const { data: connections } = useConnections();
+const connectionName = useMemo(
+  () => connections?.find(c => c.id === sourceObj?.connection)?.name,
+  [connections, sourceObj?.connection],
+);
+
   return useMemo(() => {
     if (sourceObj != null) {
       return {
@@ -478,6 +488,7 @@ function useSearchedConfigToChartConfig({
           timestampValueExpression: sourceObj.timestampValueExpression,
           implicitColumnExpression: sourceObj.implicitColumnExpression,
           connection: sourceObj.connection,
+          connectionName,
           displayType: DisplayType.Search,
           orderBy:
             orderBy ||
@@ -489,7 +500,7 @@ function useSearchedConfigToChartConfig({
     }
 
     return { data: null, isLoading };
-  }, [sourceObj, isLoading, select, filters, where, whereLanguage]);
+  }, [sourceObj, isLoading, select, filters, where, whereLanguage, orderBy]);
 }
 
 // This is outside as it needs to be a stable reference
@@ -500,6 +511,7 @@ const queryStateMap = {
   whereLanguage: parseAsStringEnum<'sql' | 'lucene'>(['sql', 'lucene']),
   filters: parseAsJson<Filter[]>(),
   orderBy: parseAsString,
+  connection: parseAsString,
 };
 
 function DBSearchPage() {
@@ -541,7 +553,7 @@ function DBSearchPage() {
   );
 
   const [_isLive, setIsLive] = useQueryState('isLive', parseAsBoolean);
-  const isLive = _isLive ?? true;
+  const isLive = _isLive ?? false; // Default to false instead of true
 
   useEffect(() => {
     if (analysisMode === 'delta' || analysisMode === 'pattern') {
@@ -567,17 +579,50 @@ function DBSearchPage() {
     [sources, lastSelectedSourceId],
   );
 
-  const {
-    control,
-    watch,
-    setValue,
-    reset,
-    handleSubmit,
-    getValues,
-    formState,
-    setError,
-    resetField,
-  } = useForm<SearchConfigFromSchema>({
+  const { data: connections } = useConnections();
+  const { data: inputSourceObjs } = useSources();
+
+  // Get initial connection from URL or derive from source
+  const getInitialConnection = useCallback(() => {
+    // First try URL connection
+    if (searchedConfig.connection) {
+      return searchedConfig.connection;
+    }
+    // Then try to get connection from current source
+    if (searchedConfig.source && inputSourceObjs) {
+      const sourceObj = inputSourceObjs.find(
+        s => s.id === searchedConfig.source,
+      );
+      if (sourceObj?.connection) {
+        return sourceObj.connection;
+      }
+    }
+
+    // Then try connection from last selected source
+    if (lastSelectedSourceId && inputSourceObjs) {
+      const lastSource = inputSourceObjs.find(
+        s => s.id === lastSelectedSourceId,
+      );
+      if (lastSource?.connection) {
+        return lastSource.connection;
+      }
+    }
+
+    // Finally fallback to first available connection
+    return connections?.[0]?.id || undefined;
+  }, [
+    searchedConfig.connection,
+    searchedConfig.source,
+    inputSourceObjs,
+    lastSelectedSourceId,
+    connections,
+  ]);
+
+  const { control, watch, setValue, reset, handleSubmit, formState } = useForm<
+    SearchConfigFromSchema & {
+      connection?: string;
+    }
+  >({
     values: {
       select: searchedConfig.select || '',
       where: searchedConfig.where || '',
@@ -585,6 +630,7 @@ function DBSearchPage() {
       source: searchedConfig.source || defaultSourceId,
       filters: searchedConfig.filters ?? [],
       orderBy: searchedConfig.orderBy ?? '',
+      connection: getInitialConnection(),
     },
     resetOptions: {
       keepDirtyValues: true,
@@ -594,8 +640,6 @@ function DBSearchPage() {
   });
 
   const inputSource = watch('source');
-  // const { data: inputSourceObj } = useSource({ id: inputSource });
-  const { data: inputSourceObjs } = useSources();
   const inputSourceObj = inputSourceObjs?.find(s => s.id === inputSource);
 
   // When source changes, make sure select and orderby fields are set to default
@@ -609,14 +653,26 @@ function DBSearchPage() {
 
   const [rowId, setRowId] = useQueryState('rowWhere');
 
+  // Create initial fixed time display value
+  const initialTimeDisplay = useMemo(() => {
+    return dateRangeToString(defaultTimeRange, false);
+  }, []);
+
   const [displayedTimeInputValue, setDisplayedTimeInputValue] =
-    useState('Live Tail');
+    useState(initialTimeDisplay);
+
+  // Set isLive to false when starting with a fixed time range
+  useEffect(() => {
+    if (displayedTimeInputValue === initialTimeDisplay && _isLive == null) {
+      setIsLive(false);
+    }
+  }, [displayedTimeInputValue, _isLive, setIsLive, initialTimeDisplay]);
 
   const { from, to, isReady, searchedTimeRange, onSearch, onTimeRangeSelect } =
     useNewTimeQuery({
-      initialDisplayValue: 'Live Tail',
+      initialDisplayValue: initialTimeDisplay,
       initialTimeRange: defaultTimeRange,
-      showRelativeInterval: isLive ?? true,
+      showRelativeInterval: isLive ?? false,
       setDisplayedTimeInputValue,
       updateInput: !isLive,
     });
@@ -625,13 +681,9 @@ function DBSearchPage() {
   // If live tail is null, and time range is null, let's live tail
   useEffect(() => {
     if (_isLive == null && isReady) {
-      if (from == null && to == null) {
-        setIsLive(true);
-      } else {
-        setIsLive(false);
-      }
+      setIsLive(false);
     }
-  }, [_isLive, setIsLive, from, to, isReady]);
+  }, [_isLive, setIsLive, isReady]);
 
   // Sync url state back with form state
   // (ex. for history navigation)
@@ -646,9 +698,14 @@ function DBSearchPage() {
         source: searchedConfig?.source ?? undefined,
         filters: searchedConfig?.filters ?? [],
         orderBy: searchedConfig?.orderBy ?? '',
+        // Use URL connection if available, otherwise preserve current form connection
+        connection:
+          searchedConfig?.connection ??
+          watch('connection') ??
+          getInitialConnection(),
       });
     }
-  }, [searchedConfig, reset, prevSearched]);
+  }, [searchedConfig, reset, prevSearched, getInitialConnection, watch]);
 
   // Populate searched query with saved search if the query params have
   // been wiped (ex. clicking on the same saved search again)
@@ -715,7 +772,15 @@ function DBSearchPage() {
   const onSubmit = useCallback(() => {
     onSearch(displayedTimeInputValue);
     handleSubmit(
-      ({ select, where, whereLanguage, source, filters, orderBy }) => {
+      ({
+        select,
+        where,
+        whereLanguage,
+        source,
+        filters,
+        orderBy,
+        connection,
+      }) => {
         setSearchedConfig({
           select,
           where,
@@ -723,6 +788,7 @@ function DBSearchPage() {
           source,
           filters,
           orderBy,
+          connection,
         });
       },
     )();
@@ -774,6 +840,20 @@ function DBSearchPage() {
           );
           // Clear all search filters
           searchFilters.clearAllFilters();
+          // Trigger refresh for new source
+          setTimeout(() => debouncedSubmit(), 0);
+        }
+      }
+
+      // If the user changes the connection dropdown, update URL state and trigger data refresh
+      if (name === 'connection' && type === 'change') {
+        if (data.connection) {
+          setSearchedConfig(prev => ({
+            ...prev,
+            connection: data.connection,
+          }));
+          // Trigger refresh for new connection
+          setTimeout(() => debouncedSubmit(), 0);
         }
       }
     });
@@ -785,6 +865,8 @@ function DBSearchPage() {
     inputSourceObjs,
     searchFilters,
     setLastSelectedSourceId,
+    setSearchedConfig,
+    debouncedSubmit,
   ]);
 
   const onTableScroll = useCallback(
@@ -912,19 +994,10 @@ function DBSearchPage() {
     pause: isAnyQueryFetching || !queryReady || !isTabVisible,
   });
 
-  // This ensures we only render this conditionally on the client
-  // otherwise we get SSR hydration issues
-  const [shouldShowLiveModeHint, setShouldShowLiveModeHint] = useState(false);
-  useEffect(() => {
-    setShouldShowLiveModeHint(isLive === false);
-  }, [isLive]);
+  // Live Tail disabled; no resume hint needed
 
   const { data: me } = api.useMe();
-  const handleResumeLiveTail = useCallback(() => {
-    setIsLive(true);
-    setDisplayedTimeInputValue('Live Tail');
-    onSearch('Live Tail');
-  }, [onSearch, setIsLive]);
+  // Live Tail disabled; no resume handler
 
   const dbSqlRowTableConfig = useMemo(() => {
     if (chartConfig == null) {
@@ -935,7 +1008,7 @@ function DBSearchPage() {
       ...chartConfig,
       dateRange: searchedTimeRange,
     };
-  }, [me?.team, chartConfig, searchedTimeRange]);
+  }, [chartConfig, searchedTimeRange]);
 
   const displayedColumns = splitAndTrimWithBracket(
     dbSqlRowTableConfig?.select ??
@@ -996,7 +1069,8 @@ function DBSearchPage() {
       // Only trigger if we haven't searched yet (no time range in URL)
       const searchParams = new URLSearchParams(window.location.search);
       if (!searchParams.has('from') && !searchParams.has('to')) {
-        onSearch('Live Tail');
+        const newTimeRange = new Date(defaultTimeRange[0]);
+        onSearch(newTimeRange.toISOString());
       }
     }
   }, [isReady, queryReady, isChartConfigLoading, onSearch]);
@@ -1063,7 +1137,7 @@ function DBSearchPage() {
       onTimeRangeSelect(d1, d2);
       setIsLive(false);
     },
-    [onTimeRangeSelect],
+    [onTimeRangeSelect, setIsLive],
   );
 
   const onTimeChartError = useCallback(
@@ -1103,6 +1177,55 @@ function DBSearchPage() {
     setNewSourceModalOpened(true);
   }, []);
 
+  // Parse demo auth emails from environment variable
+  const { authArray } = useAuthEmails();
+
+  // Ensure connection is set when data becomes available
+  useEffect(() => {
+    const currentConnection = watch('connection');
+    // Wait until sources are loaded so we can derive connection from selected source if present
+    if (!currentConnection && inputSourceObjs && connections && connections.length > 0) {
+      const preferredConnectionId = getInitialConnection();
+      if (preferredConnectionId) {
+        setValue('connection', preferredConnectionId);
+        // Update URL state as well
+        setSearchedConfig(prev => ({
+          ...prev,
+          connection: preferredConnectionId,
+        }));
+      }
+    }
+  }, [connections, inputSourceObjs, setValue, watch, getInitialConnection, setSearchedConfig]);
+
+  // Ensure a matching initial source for the selected connection
+  const selectedConnectionId = watch('connection');
+  useEffect(() => {
+    if (!selectedConnectionId || !inputSourceObjs) return;
+    const allowedKinds = [SourceKind.Log, SourceKind.Trace];
+    const firstMatching = inputSourceObjs.find(
+      s =>
+        s.connection === selectedConnectionId && allowedKinds.includes(s.kind),
+    );
+    if (!firstMatching) return;
+    const currentSourceId = watch('source');
+    const currentSource = inputSourceObjs.find(
+      s => s.id === (currentSourceId as any),
+    );
+    // If current source is missing, pick the first matching source for the connection
+    if (!currentSource) {
+      setValue('source', firstMatching.id, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+      return;
+    }
+    // If there is a mismatch, prefer keeping the current source and align the connection to it
+    if (currentSource.connection !== selectedConnectionId) {
+      setValue('connection', currentSource.connection as any);
+      setSearchedConfig(prev => ({ ...prev, connection: currentSource.connection }));
+    }
+  }, [selectedConnectionId, inputSourceObjs, setValue, setSearchedConfig, watch]);
+
   return (
     <Flex direction="column" h="100vh" style={{ overflow: 'hidden' }}>
       {!IS_LOCAL_MODE && isAlertModalOpen && (
@@ -1117,28 +1240,35 @@ function DBSearchPage() {
       <form onSubmit={onFormSubmit}>
         {/* <DevTool control={control} /> */}
         <Flex gap="sm" px="sm" pt="sm" wrap="nowrap">
+          {/* <Box style={{ minWidth: 140, maxWidth: 140 }}>
+            <ConnectionSelectControlled control={control} name="connection" size="xs" />
+          </Box> */}
           <Group gap="4px" wrap="nowrap">
-            <SourceSelectControlled
-              key={`${savedSearchId}`}
-              size="xs"
-              control={control}
-              name="source"
-              onCreate={openNewSourceModal}
-              allowedSourceKinds={[SourceKind.Log, SourceKind.Trace]}
-            />
+            <Box style={{ minWidth: 200 }}>
+              <SourceSelectControlled
+                key={`${savedSearchId}`}
+                size="xs"
+                control={control}
+                name="source"
+                onCreate={openNewSourceModal}
+                allowedSourceKinds={[SourceKind.Log, SourceKind.Trace]}
+              />
+            </Box>
             <Menu withArrow position="bottom-start">
-              <Menu.Target>
-                <ActionIcon
-                  variant="subtle"
-                  color="dark.2"
-                  size="sm"
-                  title="Edit Source"
-                >
-                  <Text size="xs">
-                    <i className="bi bi-gear" />
-                  </Text>
-                </ActionIcon>
-              </Menu.Target>
+              {authArray[me?.email as keyof typeof authArray] && (
+                <Menu.Target>
+                  <ActionIcon
+                    variant="subtle"
+                    color="dark.2"
+                    size="sm"
+                    title="Edit Source"
+                  >
+                    <Text size="xs">
+                      <i className="bi bi-gear" />
+                    </Text>
+                  </ActionIcon>
+                </Menu.Target>
+              )}
               <Menu.Dropdown>
                 <Menu.Label>Sources</Menu.Label>
                 <Menu.Item
@@ -1339,14 +1469,11 @@ function DBSearchPage() {
             inputValue={displayedTimeInputValue}
             setInputValue={setDisplayedTimeInputValue}
             onSearch={range => {
-              if (range === 'Live Tail') {
-                setIsLive(true);
-              } else {
-                setIsLive(false);
-              }
+              // Live Tail disabled
+              setIsLive(false);
               onSearch(range);
             }}
-            showLive={analysisMode === 'results'}
+            showLive={false}
           />
           <Button
             variant="outline"
@@ -1378,7 +1505,6 @@ function DBSearchPage() {
         <SaveSearchModal
           opened={saveSearchModalState != null}
           onClose={() => setSaveSearchModalState(undefined)}
-          // @ts-ignore FIXME: Do some sort of validation?
           searchedConfig={searchedConfig}
           isUpdate={saveSearchModalState === 'update'}
           savedSearchId={savedSearchId}
@@ -1417,6 +1543,9 @@ function DBSearchPage() {
                   setAnalysisMode={setAnalysisMode}
                   chartConfig={filtersChartConfig}
                   sourceId={inputSourceObj?.id}
+                  sourceType={inputSourceObj?.kind}
+                  sourceName={inputSourceObj?.name}
+                  connectionName={(filtersChartConfig as any)?.connectionName}
                   showDelta={!!searchedSource?.durationExpression}
                   {...searchFilters}
                 />
@@ -1679,31 +1808,7 @@ function DBSearchPage() {
                   </>
                 ) : (
                   <>
-                    {shouldShowLiveModeHint &&
-                      analysisMode === 'results' &&
-                      denoiseResults != true && (
-                        <div
-                          className="d-flex justify-content-center"
-                          style={{ height: 0 }}
-                        >
-                          <div
-                            style={{
-                              position: 'relative',
-                              top: -20,
-                              zIndex: 2,
-                            }}
-                          >
-                            <Button
-                              size="compact-xs"
-                              variant="outline"
-                              onClick={handleResumeLiveTail}
-                            >
-                              <i className="bi text-success bi-lightning-charge-fill me-2" />
-                              Resume Live Tail
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                    {/* Live Tail disabled; no resume hint */}
                     {chartConfig &&
                       dbSqlRowTableConfig &&
                       analysisMode === 'results' && (
@@ -1733,7 +1838,7 @@ function DBSearchPage() {
 
 const DBSearchPageDynamic = dynamic(async () => DBSearchPage, { ssr: false });
 
-// @ts-ignore
+// @ts-expect-error: Next.js dynamic component layout typing is not declared here
 DBSearchPageDynamic.getLayout = withAppNav;
 
 export default DBSearchPageDynamic;

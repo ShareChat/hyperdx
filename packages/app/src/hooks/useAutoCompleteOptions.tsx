@@ -7,6 +7,7 @@ import {
   useAllFields,
   useGetKeyValues,
 } from '@/hooks/useMetadata';
+import { useNewTimeQuery } from '@/timeQuery';
 import { toArray } from '@/utils';
 
 export interface ILanguageFormatter {
@@ -84,6 +85,39 @@ export function useAutoCompleteOptions(
   );
 
   // hooks to get key values
+  const default15MinRange = useMemo<[Date, Date]>(() => {
+    const now = new Date(NOW);
+    return [new Date(NOW - 15 * 60 * 1000), now]; // 15 minutes ago to now
+  }, []);
+  const { searchedTimeRange } = useNewTimeQuery({
+    initialTimeRange: default15MinRange,
+    updateInput: false,
+  });
+
+  // Use full start-end time from URL, or fall back to 15 minutes from current time
+  const autocompleteTimeRange = useMemo<[Date, Date]>(() => {
+    // If the searchedTimeRange is the same as our default, use it (no URL params)
+    // Otherwise, use the full URL time range
+    return searchedTimeRange;
+  }, [searchedTimeRange]);
+
+  // Infer a timestamp column from the available fields so time filters apply
+  const inferredTimestamp = useMemo(() => {
+    const preferredNames = [
+      'TimestampTime',
+      'Timestamp',
+      'TimeUnix',
+      'event_time',
+      'EventTime',
+    ];
+    const topLevelFields = (fields ?? []).filter(f => f.path.length === 1);
+    for (const name of preferredNames) {
+      if (topLevelFields.some(f => f.path[0] === name)) return name;
+    }
+    const dt = topLevelFields.find(f => /DateTime(64)?|Date/.test(f.type));
+    return dt?.path[0] ?? '';
+  }, [fields]);
+
   const chartConfigs: ChartConfigWithDateRange[] = toArray(
     tableConnections,
   ).map(({ databaseName, tableName, connectionId }) => ({
@@ -92,12 +126,11 @@ export function useAutoCompleteOptions(
       databaseName,
       tableName,
     },
-    timestampValueExpression: '',
+    timestampValueExpression: inferredTimestamp,
     select: '',
     where: '',
-    // TODO: Pull in date for query as arg
-    // just assuming 1/2 day is okay to query over right now
-    dateRange: [new Date(NOW - (86400 * 1000) / 2), new Date(NOW)],
+    // Use full URL time range, or 15 minutes from current time if no URL params
+    dateRange: autocompleteTimeRange,
   }));
   const { data: keyVals } = useGetKeyValues({
     chartConfigs,
