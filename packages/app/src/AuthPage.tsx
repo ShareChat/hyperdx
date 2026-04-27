@@ -6,13 +6,14 @@ import { HTTPError } from 'ky';
 import { SubmitHandler, useForm, useWatch } from 'react-hook-form';
 import {
   Button,
+  Divider,
   Notification,
   Paper,
   PasswordInput,
   Stack,
   TextInput,
 } from '@mantine/core';
-import { IconAt, IconLock } from '@tabler/icons-react';
+import { IconAt, IconBrandGoogle, IconLock } from '@tabler/icons-react';
 
 import { useBrandDisplayName } from './theme/ThemeProvider';
 import api from './api';
@@ -214,6 +215,21 @@ export default function AuthPage({ action }: { action: 'register' | 'login' }) {
                         ? 'Register'
                         : 'Login'}
                   </Button>
+                  {action === 'login' && config.GOOGLE_SSO_ENABLED && (
+                    <>
+                      <Divider label="or" labelPosition="center" />
+                      <Button
+                        component="a"
+                        href="/api/login/google"
+                        variant="secondary"
+                        size="md"
+                        leftSection={<IconBrandGoogle size={18} />}
+                        data-test-id="google-sso-button"
+                      >
+                        Sign in with Google
+                      </Button>
+                    </>
+                  )}
                 </Stack>
               </Paper>
 
@@ -234,7 +250,9 @@ export default function AuthPage({ action }: { action: 'register' | 'login' }) {
                           ? 'Password authentication is not allowed by your team admin.'
                           : err === 'teamAlreadyExists'
                             ? 'Team already exists, please login instead.'
-                            : 'Unknown error occurred, please try again later.'}
+                            : err === 'domainNotAllowed'
+                              ? 'Your Google account domain is not authorized. Please use your organization email.'
+                              : 'Unknown error occurred, please try again later.'}
                 </Notification>
               )}
 

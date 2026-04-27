@@ -558,6 +558,22 @@ router.post(
         series: externalSeries,
       } = req.body;
 
+      span?.setAttributes({
+        'team.id': teamId.toString(),
+        'user.id': req.user?._id?.toString() ?? '',
+        'search.series_count': externalSeries.length,
+        'search.time_range_ms': endTime - startTime,
+        'search.granularity': granularity ?? '',
+        ...Object.fromEntries(
+          externalSeries.flatMap((s: any, i: number) => [
+            [`search.series.${i}.source_id`, s.sourceId ?? ''],
+            [`search.series.${i}.agg_fn`, s.aggFn ?? ''],
+            [`search.series.${i}.where`, s.where ?? ''],
+            [`search.series.${i}.where_language`, s.whereLanguage ?? ''],
+          ]),
+        ),
+      });
+
       const allResults = await Promise.all(
         externalSeries.map(async (series, index) => {
           try {
@@ -652,6 +668,10 @@ router.post(
         responseData = formatCHResult(combinedResults, primaryGroupByFields);
       }
 
+      span?.setAttribute(
+        'search.result_row_count',
+        combinedResults.length,
+      );
       res.json({ data: responseData });
     } catch (e) {
       span?.recordException(e as Error);

@@ -686,3 +686,38 @@ export async function register() {
 ```
 
 ---
+
+### 6. Google SSO — domain-based auto-join
+
+**Added**: 2026-04-27  
+**Last verified**: 2026-04-27  
+**Branch**: `abhiroop93/feat/hyperdx-upgrade`
+
+**Intent**: Allow users to sign in with Google OAuth2. Since HyperDX is a single-team deployment, any Google account whose domain matches `GOOGLE_ALLOWED_DOMAINS` is automatically assigned to the existing team on first login. No invite token required. The button is hidden unless `NEXT_PUBLIC_GOOGLE_SSO_ENABLED=true` so deployments without credentials configured are unaffected.
+
+#### Environment variables
+
+| Variable | Where | Description |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` | API | Google OAuth2 client ID (from Google Cloud Console) |
+| `GOOGLE_CLIENT_SECRET` | API | Google OAuth2 client secret |
+| `GOOGLE_CALLBACK_URL` | API | Full callback URL, e.g. `https://your-domain/api/auth/google/callback` |
+| `GOOGLE_ALLOWED_DOMAINS` | API | Comma-separated list of permitted email domains, e.g. `sharechat.co,moj.com`. Empty = any domain allowed. |
+| `NEXT_PUBLIC_GOOGLE_SSO_ENABLED` | App | Set to `'true'` to show the "Sign in with Google" button on the login page. |
+
+#### Google Cloud Console setup
+
+1. Create an OAuth 2.0 client (Web Application type)
+2. Add `GOOGLE_CALLBACK_URL` to **Authorized redirect URIs**
+3. Copy Client ID + Secret into the env vars above
+
+#### Files changed
+
+- `packages/api/package.json` — add `passport-google-oauth20` + `@types/passport-google-oauth20`
+- `packages/api/src/config.ts` — add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `GOOGLE_ALLOWED_DOMAINS`, `GOOGLE_SSO_ENABLED`
+- `packages/api/src/utils/passport.ts` — register `GoogleStrategy`; on callback: domain check → find-or-create user → assign to existing team
+- `packages/api/src/routers/api/root.ts` — add `GET /login/google` and `GET /auth/google/callback` routes
+- `packages/app/src/config.ts` — add `GOOGLE_SSO_ENABLED` (reads `NEXT_PUBLIC_GOOGLE_SSO_ENABLED`)
+- `packages/app/src/AuthPage.tsx` — show "Sign in with Google" button when `GOOGLE_SSO_ENABLED`; handle `domainNotAllowed` error
+
+---

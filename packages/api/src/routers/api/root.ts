@@ -137,6 +137,33 @@ router.post(
   },
 );
 
+router.get('/login/google', (req, res, next) => {
+  if (!config.GOOGLE_SSO_ENABLED) {
+    return res.status(404).json({ error: 'Google SSO is not configured' });
+  }
+  passport.authenticate('google', { scope: ['email', 'profile'] })(
+    req,
+    res,
+    next,
+  );
+});
+
+router.get(
+  '/auth/google/callback',
+  (req, res, next) => {
+    passport.authenticate('google', {
+      failWithError: true,
+      failureMessage: true,
+    })(req, res, next);
+  },
+  redirectToDashboard,
+  (err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    const message = err?.message ?? '';
+    const errCode = message === 'domainNotAllowed' ? 'domainNotAllowed' : 'authFail';
+    res.redirect(`${config.FRONTEND_URL}/login?err=${errCode}`);
+  },
+);
+
 router.get('/logout', (req, res, next) => {
   req.logout(function (err) {
     if (err) {

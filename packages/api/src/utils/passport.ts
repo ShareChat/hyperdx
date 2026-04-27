@@ -1,7 +1,10 @@
 import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as LocalStrategy } from 'passport-local';
 
+import * as config from '@/config';
 import { findUserById } from '@/controllers/user';
+import Team from '@/models/team';
 import type { UserDocument } from '@/models/user';
 import User from '@/models/user';
 
@@ -51,5 +54,62 @@ passport.use(
     },
   ),
 );
+
+if (config.GOOGLE_SSO_ENABLED) {
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: config.GOOGLE_CLIENT_ID,
+        clientSecret: config.GOOGLE_CLIENT_SECRET,
+        callbackURL: config.GOOGLE_CALLBACK_URL,
+      },
+      async (_accessToken, _refreshToken, profile, done) => {
+        try {
+          const email = profile.emails?.[0]?.value?.toLowerCase();
+          if (!email) {
+            return done(new Error('No email returned from Google'));
+          }
+
+          // Domain allow-list check
+          if (config.GOOGLE_ALLOWED_DOMAINS.length > 0) {
+            const domain = email.split('@')[1];
+            if (!config.GOOGLE_ALLOWED_DOMAINS.includes(domain)) {
+              logger.info(
+                { email, domain },
+                'Google SSO blocked: domain not in allow-list',
+              );
+              return done(null, false, 'domainNotAllowed' as any);
+            }
+          }
+
+          // Return existing user
+          const existingUser = await User.findOne({ email });
+          if (existingUser) {
+            logger.info({ email }, 'Google SSO login: existing user');
+            return done(null, existingUser as UserDocument);
+          }
+
+          // New user — join the existing team (single-team deployment)
+          const team = await Team.findOne({});
+          if (!team) {
+            return done(new Error('No team found; complete initial setup first'));
+          }
+
+          const newUser = new User({
+            email,
+            name: profile.displayName || email,
+            team: team._id,
+          });
+          await newUser.save();
+
+          logger.info({ email, teamId: team._id }, 'Google SSO login: new user created');
+          return done(null, newUser as UserDocument);
+        } catch (err) {
+          return done(err as Error);
+        }
+      },
+    ),
+  );
+}
 
 export default passport;

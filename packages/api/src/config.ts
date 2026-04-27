@@ -57,3 +57,16 @@ export const AI_REQUEST_HEADERS = env.AI_REQUEST_HEADERS as string;
 
 // Legacy Anthropic-specific configuration (backward compatibility)
 export const ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY as string;
+
+// Google SSO
+export const GOOGLE_CLIENT_ID = env.GOOGLE_CLIENT_ID as string;
+export const GOOGLE_CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET as string;
+export const GOOGLE_CALLBACK_URL = env.GOOGLE_CALLBACK_URL as string;
+export const GOOGLE_ALLOWED_DOMAINS: string[] = (
+  env.GOOGLE_ALLOWED_DOMAINS ?? ''
+)
+  .split(',')
+  .map(d => d.trim().toLowerCase())
+  .filter(Boolean);
+export const GOOGLE_SSO_ENABLED =
+  Boolean(GOOGLE_CLIENT_ID) && Boolean(GOOGLE_CLIENT_SECRET);

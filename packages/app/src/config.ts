@@ -59,6 +59,9 @@ export const IS_CLICKHOUSE_BUILD =
 // eslint-disable-next-line no-restricted-syntax
 export const NOW = Date.now();
 
+export const GOOGLE_SSO_ENABLED =
+  process.env.NEXT_PUBLIC_GOOGLE_SSO_ENABLED === 'true';
+
 export const IS_LIVE_TAIL_ENABLED =
   (process.env.NEXT_PUBLIC_IS_LIVE_TAIL_ENABLED ?? 'true') === 'true';
 
