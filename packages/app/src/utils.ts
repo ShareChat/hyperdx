@@ -1113,3 +1113,24 @@ export const isElementClickable = (el: HTMLElement): boolean => {
   // or if the element at point is a descendant of the element passed in
   return el === elementAtPoint || el.contains(elementAtPoint);
 };
+
+/**
+ * Walk backwards through whitespace-separated tokens, merging until the quote
+ * count is balanced. Handles `servicename:"my service"` as a single token.
+ */
+export function getLastToken(value: string): string {
+  const trimmed = value.trimEnd();
+  if (!trimmed.length) return '';
+  const parts = trimmed.split(/\s+/);
+  let result = '';
+  for (let i = parts.length - 1; i >= 0; i--) {
+    result = parts[i] + (result ? ' ' + result : '');
+    if ((result.match(/"/g) ?? []).length % 2 === 0) break;
+  }
+  return result;
+}
+
+/** Strip a single leading `-` (Lucene negation) before field-map lookup. */
+export function stripNegation(token: string): string {
+  return token.startsWith('-') ? token.slice(1) : token;
+}

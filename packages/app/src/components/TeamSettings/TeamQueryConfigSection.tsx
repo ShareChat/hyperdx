@@ -19,6 +19,7 @@ import { IconHelpCircle, IconPencil } from '@tabler/icons-react';
 
 import api from '@/api';
 import SelectControlled from '@/components/SelectControlled';
+import { useIsPrivilegedUser } from '@/hooks/useIsPrivilegedUser';
 import {
   DEFAULT_FILTER_KEYS_FETCH_LIMIT,
   DEFAULT_QUERY_TIMEOUT,
@@ -62,7 +63,7 @@ function ClickhouseSettingForm({
 }: ClickhouseSettingFormProps) {
   const { data: me, refetch: refetchMe } = api.useMe();
   const updateClickhouseSettings = api.useUpdateClickhouseSettings();
-  const hasAdminAccess = true;
+  const hasAdminAccess = useIsPrivilegedUser();
   const [isEditing, setIsEditing] = useState(false);
   const currentValue = me?.team[settingKey];
 

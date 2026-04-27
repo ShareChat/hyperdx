@@ -73,7 +73,15 @@ export function parseTimeRangeInput(
 }
 
 export const LIVE_TAIL_TIME_QUERY = 'Live Tail' as const;
-export const LIVE_TAIL_DURATION_MS = ms('15m');
+
+const _rawLiveTailDuration = parseInt(
+  process.env.NEXT_PUBLIC_LIVE_TAIL_DURATION_MS ?? '',
+  10,
+);
+export const LIVE_TAIL_DURATION_MS =
+  Number.isFinite(_rawLiveTailDuration) && _rawLiveTailDuration > 0
+    ? _rawLiveTailDuration
+    : ms('15m');
 
 export const RELATIVE_TIME_OPTIONS: (
   | [label: string, duration: number, relativeSupport?: boolean]

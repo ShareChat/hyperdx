@@ -12,7 +12,7 @@ import {
   useMultipleAllFields,
   useMultipleGetKeyValues,
 } from '@/hooks/useMetadata';
-import { mergePath, toArray } from '@/utils';
+import { getLastToken, mergePath, stripNegation, toArray } from '@/utils';
 
 export interface ILanguageFormatter {
   formatFieldValue: (f: Field) => string;
@@ -64,19 +64,26 @@ export function useAutoCompleteOptions(
   }, [formatter, fields, additionalSuggestions]);
 
   // searchField is used for the purpose of checking if a key is valid and key values should be fetched
-  // TODO: Come back and refactor how this works - it's not great and wouldn't catch a person copy-pasting some text
   const [searchField, setSearchField] = useState<Field | null>(null);
-  // check if any search field matches
+  // detect field from the last quote-aware token, supporting `field:value` in-progress form
   useEffect(() => {
-    const v = fieldCompleteMap.get(value);
-    if (v) {
-      setSearchField(v);
+    const lastToken = stripNegation(getLastToken(value));
+    const direct = fieldCompleteMap.get(lastToken);
+    if (direct) {
+      setSearchField(direct);
+      return;
+    }
+    const colon = lastToken.indexOf(':');
+    if (colon > 0) {
+      const matched = fieldCompleteMap.get(lastToken.slice(0, colon));
+      if (matched) setSearchField(matched);
     }
   }, [fieldCompleteMap, value]);
-  // clear search field if no key matches anymore
+  // clear search field when the user moves to a different field
   useEffect(() => {
     if (!searchField) return;
-    if (!value.startsWith(formatter.formatFieldValue(searchField))) {
+    const lastToken = stripNegation(getLastToken(value));
+    if (!lastToken.startsWith(formatter.formatFieldValue(searchField))) {
       setSearchField(null);
     }
   }, [searchField, setSearchField, value, formatter]);

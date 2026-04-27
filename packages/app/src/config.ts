@@ -59,6 +59,38 @@ export const IS_CLICKHOUSE_BUILD =
 // eslint-disable-next-line no-restricted-syntax
 export const NOW = Date.now();
 
+export const IS_LIVE_TAIL_ENABLED =
+  (process.env.NEXT_PUBLIC_IS_LIVE_TAIL_ENABLED ?? 'true') === 'true';
+
+const _rawAutocompleteLimit = parseInt(
+  process.env.NEXT_PUBLIC_AUTOCOMPLETE_SUGGESTIONS_LIMIT ?? '',
+  10,
+);
+export const AUTOCOMPLETE_SUGGESTIONS_LIMIT =
+  Number.isFinite(_rawAutocompleteLimit) && _rawAutocompleteLimit > 0
+    ? _rawAutocompleteLimit
+    : 10;
+
+const _rawAutocompleteMinChars = parseInt(
+  process.env.NEXT_PUBLIC_AUTOCOMPLETE_MIN_CHARS ?? '',
+  10,
+);
+export const AUTOCOMPLETE_MIN_CHARS =
+  Number.isFinite(_rawAutocompleteMinChars) && _rawAutocompleteMinChars >= 0
+    ? _rawAutocompleteMinChars
+    : 1;
+
+/**
+ * Comma-separated list of emails that can access privileged team settings
+ * (Connections, Query Settings). When empty, all users have access (default behaviour).
+ */
+export const PRIVILEGED_EMAILS: string[] = (
+  process.env.NEXT_PUBLIC_PRIVILEGED_EMAILS ?? ''
+)
+  .split(',')
+  .map(e => e.trim().toLowerCase())
+  .filter(Boolean);
+
 // Features in development
 export const IS_K8S_DASHBOARD_ENABLED = true;
 export const IS_METRICS_ENABLED = true;

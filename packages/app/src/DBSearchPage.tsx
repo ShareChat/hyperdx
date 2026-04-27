@@ -99,7 +99,7 @@ import { SourceSelectControlled } from '@/components/SourceSelect';
 import { SQLInlineEditorControlled } from '@/components/SQLEditor/SQLInlineEditor';
 import { Tags } from '@/components/Tags';
 import { TimePicker } from '@/components/TimePicker';
-import { IS_LOCAL_MODE } from '@/config';
+import { IS_LIVE_TAIL_ENABLED, IS_LOCAL_MODE } from '@/config';
 import { useAliasMapFromChartConfig } from '@/hooks/useChartConfig';
 import { useExplainQuery } from '@/hooks/useExplainQuery';
 import { withAppNav } from '@/layout';
@@ -860,6 +860,7 @@ export function DBSearchPage() {
     'isLive',
     parseAsBoolean.withDefault(true),
   );
+  const effectiveIsLive = isLive && IS_LIVE_TAIL_ENABLED;
 
   useEffect(() => {
     if (analysisMode === 'delta' || analysisMode === 'pattern') {
@@ -1294,7 +1295,7 @@ export function DBSearchPage() {
   }, [updateRelativeTimeInputValue, searchedConfig.source, isReady]);
 
   useLiveUpdate({
-    isLive,
+    isLive: effectiveIsLive,
     interval,
     refreshFrequency,
     onTimeRangeSelect,
@@ -1938,15 +1939,15 @@ export function DBSearchPage() {
               setInputValue={setDisplayedTimeInputValue}
               onSearch={onTimePickerSearch}
               onRelativeSearch={onTimePickerRelativeSearch}
-              showLive={analysisMode === 'results'}
-              isLiveMode={isLive}
+              showLive={analysisMode === 'results' && IS_LIVE_TAIL_ENABLED}
+              isLiveMode={effectiveIsLive}
               // Default to relative time mode if the user has made changes to interval and reloaded.
               defaultRelativeTimeMode={
-                isLive && interval !== LIVE_TAIL_DURATION_MS
+                effectiveIsLive && interval !== LIVE_TAIL_DURATION_MS
               }
               width="100%"
             />
-            {isLive && (
+            {effectiveIsLive && (
               <Tooltip label="Live tail refresh interval">
                 <Box style={{ width: 80, minWidth: 80, flexShrink: 0 }}>
                   <Select
@@ -2127,6 +2128,7 @@ export function DBSearchPage() {
                           />
                           <Group gap="sm" align="center">
                             {shouldShowLiveModeHint &&
+                              IS_LIVE_TAIL_ENABLED &&
                               denoiseResults != true && (
                                 <ResumeLiveTailButton
                                   handleResumeLiveTail={handleResumeLiveTail}

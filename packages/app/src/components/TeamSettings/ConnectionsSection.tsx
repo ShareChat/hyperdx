@@ -5,9 +5,11 @@ import { IconPencil, IconX } from '@tabler/icons-react';
 import { ConnectionForm } from '@/components/ConnectionForm';
 import { IS_CLICKHOUSE_BUILD, IS_LOCAL_MODE } from '@/config';
 import { useConnections } from '@/connection';
+import { useIsPrivilegedUser } from '@/hooks/useIsPrivilegedUser';
 
 export default function ConnectionsSection() {
   const { data: connections } = useConnections();
+  const isPrivileged = useIsPrivilegedUser();
   const [editedConnectionId, setEditedConnectionId] = useState<string | null>(
     null,
   );
@@ -36,23 +38,24 @@ export default function ConnectionsSection() {
                     <b>Password:</b> [Configured]
                   </Text>
                 </Stack>
-                {editedConnectionId !== connection.id ? (
-                  <Button
-                    variant="subtle"
-                    onClick={() => setEditedConnectionId(connection.id)}
-                    size="sm"
-                  >
-                    <IconPencil size={14} className="me-2" /> Edit
-                  </Button>
-                ) : (
-                  <Button
-                    variant="subtle"
-                    onClick={() => setEditedConnectionId(null)}
-                    size="sm"
-                  >
-                    <IconX size={14} className="me-2" /> Cancel
-                  </Button>
-                )}
+                {isPrivileged &&
+                  (editedConnectionId !== connection.id ? (
+                    <Button
+                      variant="subtle"
+                      onClick={() => setEditedConnectionId(connection.id)}
+                      size="sm"
+                    >
+                      <IconPencil size={14} className="me-2" /> Edit
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="subtle"
+                      onClick={() => setEditedConnectionId(null)}
+                      size="sm"
+                    >
+                      <IconX size={14} className="me-2" /> Cancel
+                    </Button>
+                  ))}
               </Flex>
               {editedConnectionId === connection.id && (
                 <ConnectionForm
@@ -69,7 +72,8 @@ export default function ConnectionsSection() {
             </Box>
           ))}
         </Stack>
-        {!isCreatingConnection &&
+        {isPrivileged &&
+          !isCreatingConnection &&
           (IS_LOCAL_MODE ? (connections?.length ?? 0) < 1 : true) && (
             <Button
               data-testid="add-connection-button"

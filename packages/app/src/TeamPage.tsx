@@ -26,6 +26,7 @@ import TeamMembersSection from './components/TeamSettings/TeamMembersSection';
 import TeamQueryConfigSection from './components/TeamSettings/TeamQueryConfigSection';
 import { useBrandDisplayName } from './theme/ThemeProvider';
 import api from './api';
+import { useIsPrivilegedUser } from './hooks/useIsPrivilegedUser';
 import { withAppNav } from './layout';
 
 type TeamTab = {
@@ -57,7 +58,7 @@ export default function TeamPage() {
   const allowedAuthMethods = team?.allowedAuthMethods ?? [];
   const hasAllowedAuthMethods = allowedAuthMethods.length > 0;
 
-  const hasAdminAccess = true;
+  const isPrivileged = useIsPrivilegedUser();
   const [isEditingTeamName, setIsEditingTeamName] = useState(false);
   const form = useForm<{ name: string }>({
     defaultValues: { name: team?.name },
@@ -89,20 +90,24 @@ export default function TeamPage() {
   );
 
   const tabs: TeamTab[] = [
-    {
-      value: 'data',
-      label: 'Data',
-      sections: [
-        {
-          id: 'team-data-sources',
-          content: <SourcesSection />,
-        },
-        {
-          id: 'team-data-connections',
-          content: <ConnectionsSection />,
-        },
-      ],
-    },
+    ...(isPrivileged
+      ? [
+          {
+            value: 'data',
+            label: 'Data',
+            sections: [
+              {
+                id: 'team-data-sources',
+                content: <SourcesSection />,
+              },
+              {
+                id: 'team-data-connections',
+                content: <ConnectionsSection />,
+              },
+            ],
+          },
+        ]
+      : []),
     {
       value: 'team',
       label: 'Members',
@@ -145,16 +150,20 @@ export default function TeamPage() {
         },
       ],
     },
-    {
-      value: 'advanced',
-      label: 'Query Settings',
-      sections: [
-        {
-          id: 'team-advanced-query-settings',
-          content: <TeamQueryConfigSection />,
-        },
-      ],
-    },
+    ...(isPrivileged
+      ? [
+          {
+            value: 'advanced',
+            label: 'Query Settings',
+            sections: [
+              {
+                id: 'team-advanced-query-settings',
+                content: <TeamQueryConfigSection />,
+              },
+            ],
+          },
+        ]
+      : []),
   ];
 
   const queryTab =
@@ -264,7 +273,7 @@ export default function TeamPage() {
               <span data-testid="team-name-display">
                 {team?.name || 'My team'}
               </span>
-              {hasAdminAccess && (
+              {isPrivileged && (
                 <Button
                   data-testid="team-name-change-button"
                   size="xs"
