@@ -10,7 +10,7 @@ WORKDIR /app
 
 # Copy workspace configuration files
 COPY .yarn ./.yarn
-COPY .yarnrc.yml yarn.lock package.json nx.json .prettierrc .prettierignore ./
+COPY .yarnrc.yml yarn.lock package.json nx.json .prettierrc .prettierignore tsconfig.base.json ./
 
 # Copy package.json files for all packages
 COPY ./packages/common-utils/package.json ./packages/common-utils/
@@ -32,8 +32,9 @@ COPY ./packages/api ./packages/api
 COPY ./packages/app ./packages/app
 
 # Set build environment variables
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NEXT_PUBLIC_IS_LOCAL_MODE false
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_PUBLIC_IS_LOCAL_MODE=false
+ENV NEXT_OUTPUT_STANDALONE=true
 ENV NX_DAEMON=false
 
 # Build packages in dependency order
@@ -47,10 +48,7 @@ FROM node:${NODE_VERSION}-alpine AS production
 ARG CODE_VERSION=2.1.1
 
 ENV CODE_VERSION=2.1.1
-ENV NODE_ENV production
-
-# Install concurrently for running multiple processes
-RUN npm install -g concurrently@9.1.0
+ENV NODE_ENV=production
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
@@ -60,24 +58,26 @@ USER nodejs
 
 WORKDIR /app
 
-# Copy built API
-COPY --chown=nodejs:nodejs --from=builder /app/packages/api/dist ./packages/api/dist
+# Copy built API (builds to 'build/', not 'dist/')
+COPY --chown=nodejs:nodejs --from=builder /app/packages/api/build ./packages/api/build
+COPY --chown=nodejs:nodejs --from=builder /app/packages/api/bin ./packages/api/bin
 COPY --chown=nodejs:nodejs --from=builder /app/packages/api/package.json ./packages/api/package.json
 
-# Copy built App (Next.js)
-COPY --chown=nodejs:nodejs --from=builder /app/packages/app/.next ./packages/app/.next
-COPY --chown=nodejs:nodejs --from=builder /app/packages/app/public ./packages/app/public
-COPY --chown=nodejs:nodejs --from=builder /app/packages/app/package.json ./packages/app/package.json
-COPY --chown=nodejs:nodejs --from=builder /app/packages/app/next.config.js ./packages/app/next.config.js
+# Copy built App (Next.js standalone output)
+# Standalone mode mirrors the monorepo tree inside .next/standalone, so the
+# app server ends up at packages/app/packages/app/server.js in the container.
+COPY --chown=nodejs:nodejs --from=builder /app/packages/app/.next/standalone ./packages/app
+COPY --chown=nodejs:nodejs --from=builder /app/packages/app/.next/static ./packages/app/packages/app/.next/static
+COPY --chown=nodejs:nodejs --from=builder /app/packages/app/public ./packages/app/packages/app/public
 
 # Copy built common-utils
 COPY --chown=nodejs:nodejs --from=builder /app/packages/common-utils/dist ./packages/common-utils/dist
 COPY --chown=nodejs:nodejs --from=builder /app/packages/common-utils/package.json ./packages/common-utils/package.json
 
 # Copy node_modules for runtime dependencies
+# (concurrently is in the root node_modules, no global install needed)
 COPY --chown=nodejs:nodejs --from=builder /app/node_modules ./node_modules
 COPY --chown=nodejs:nodejs --from=builder /app/packages/api/node_modules ./packages/api/node_modules
-COPY --chown=nodejs:nodejs --from=builder /app/packages/app/node_modules ./packages/app/node_modules
 COPY --chown=nodejs:nodejs --from=builder /app/packages/common-utils/node_modules ./packages/common-utils/node_modules
 
 # Copy and set up entry script
@@ -87,8 +87,8 @@ RUN chmod +x /etc/local/entry.sh
 # Expose ports
 EXPOSE 8000 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
+# Health check via Node (curl not available in alpine by default)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:8000/health',r=>r.statusCode===200?process.exit(0):process.exit(1)).on('error',()=>process.exit(1))"
 
 ENTRYPOINT ["sh", "/etc/local/entry.sh"]
