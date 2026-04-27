@@ -153,7 +153,6 @@ router.get(
   (req, res, next) => {
     passport.authenticate('google', {
       failWithError: true,
-      failureMessage: true,
     })(req, res, next);
   },
   redirectToDashboard,

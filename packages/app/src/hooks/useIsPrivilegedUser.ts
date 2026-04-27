@@ -7,9 +7,10 @@ import { PRIVILEGED_EMAILS } from '@/config';
  * privileged (preserves existing behaviour). Once the env var is populated,
  * only the listed emails have access.
  */
-export function useIsPrivilegedUser(): boolean {
-  const { data: me } = api.useMe();
+export function useIsPrivilegedUser(): boolean | undefined {
+  const { data: me, isLoading } = api.useMe();
   if (PRIVILEGED_EMAILS.length === 0) return true;
+  if (isLoading) return undefined; // still resolving — don't flash non-privileged view
   if (!me?.email) return false;
   return PRIVILEGED_EMAILS.includes(me.email.toLowerCase());
 }

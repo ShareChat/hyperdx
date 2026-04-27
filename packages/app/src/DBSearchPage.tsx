@@ -958,9 +958,9 @@ export function DBSearchPage() {
     useNewTimeQuery({
       initialDisplayValue: 'Live Tail',
       initialTimeRange: defaultTimeRange,
-      showRelativeInterval: isLive ?? true,
+      showRelativeInterval: effectiveIsLive ?? true,
       setDisplayedTimeInputValue,
-      updateInput: !isLive,
+      updateInput: !effectiveIsLive,
     });
 
   // Sync url state back with form state
@@ -1135,7 +1135,7 @@ export function DBSearchPage() {
   const onTableScroll = useCallback(
     (scrollTop: number) => {
       // If the user scrolls a bit down, kick out of live mode
-      if (scrollTop > 16 && isLive) {
+      if (scrollTop > 16 && effectiveIsLive) {
         setIsLive(false);
       }
     },
@@ -1287,7 +1287,7 @@ export function DBSearchPage() {
   }, []);
 
   useEffect(() => {
-    if (isReady && isLive) {
+    if (isReady && effectiveIsLive) {
       updateRelativeTimeInputValue(interval);
     }
     // we only want this to run on initial mount
@@ -1314,7 +1314,7 @@ export function DBSearchPage() {
   // Callback to handle when rows are expanded - kick user out of live tail
   const onExpandedRowsChange = useCallback(
     (hasExpandedRows: boolean) => {
-      if (hasExpandedRows && isLive) {
+      if (hasExpandedRows && effectiveIsLive) {
         setIsLive(false);
       }
     },
@@ -1511,7 +1511,7 @@ export function DBSearchPage() {
       eventTableSelect: searchedConfig.select,
       // In live mode, when the end date is aligned to the granularity, the end date does
       // not change on every query, resulting in cached data being re-used.
-      alignDateRangeToGranularity: !isLive,
+      alignDateRangeToGranularity: !effectiveIsLive,
       ...variableConfig,
     };
   }, [
@@ -1520,7 +1520,7 @@ export function DBSearchPage() {
     aliasWith,
     searchedTimeRange,
     searchedConfig.select,
-    isLive,
+    effectiveIsLive,
   ]);
 
   const onFormSubmit = useCallback<FormEventHandler<HTMLFormElement>>(
@@ -2016,7 +2016,7 @@ export function DBSearchPage() {
                   <DBSearchPageFilters
                     denoiseResults={denoiseResults}
                     setDenoiseResults={setDenoiseResults}
-                    isLive={isLive}
+                    isLive={effectiveIsLive}
                     analysisMode={analysisMode}
                     setAnalysisMode={setAnalysisMode}
                     chartConfig={filtersChartConfig}
@@ -2297,7 +2297,7 @@ export function DBSearchPage() {
                             onSidebarOpen={onSidebarOpen}
                             onExpandedRowsChange={onExpandedRowsChange}
                             enabled={isReady}
-                            isLive={isLive ?? true}
+                            isLive={effectiveIsLive ?? true}
                             queryKeyPrefix={QUERY_KEY_PREFIX}
                             onScroll={onTableScroll}
                             onError={handleTableError}

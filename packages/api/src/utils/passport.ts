@@ -95,15 +95,23 @@ if (config.GOOGLE_SSO_ENABLED) {
             return done(new Error('No team found; complete initial setup first'));
           }
 
-          const newUser = new User({
-            email,
-            name: profile.displayName || email,
-            team: team._id,
-          });
-          await newUser.save();
-
-          logger.info({ email, teamId: team._id }, 'Google SSO login: new user created');
-          return done(null, newUser as UserDocument);
+          try {
+            const newUser = new User({
+              email,
+              name: profile.displayName || email,
+              team: team._id,
+            });
+            await newUser.save();
+            logger.info({ email, teamId: team._id }, 'Google SSO login: new user created');
+            return done(null, newUser as UserDocument);
+          } catch (saveErr: any) {
+            // Duplicate key: another request created the user between our findOne and save
+            if (saveErr?.code === 11000) {
+              const raceUser = await User.findOne({ email });
+              if (raceUser) return done(null, raceUser as UserDocument);
+            }
+            throw saveErr;
+          }
         } catch (err) {
           return done(err as Error);
         }

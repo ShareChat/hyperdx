@@ -53,12 +53,13 @@ function TeamTabContent({ sections }: { sections: TeamTab['sections'] }) {
 export default function TeamPage() {
   const brandName = useBrandDisplayName();
   const router = useRouter();
-  const { data: team, refetch: refetchTeam, isLoading } = api.useTeam();
+  const { data: team, refetch: refetchTeam, isLoading: teamLoading } = api.useTeam();
   const setTeamName = api.useSetTeamName();
   const allowedAuthMethods = team?.allowedAuthMethods ?? [];
   const hasAllowedAuthMethods = allowedAuthMethods.length > 0;
 
   const isPrivileged = useIsPrivilegedUser();
+  const isLoading = teamLoading || isPrivileged === undefined;
   const [isEditingTeamName, setIsEditingTeamName] = useState(false);
   const form = useForm<{ name: string }>({
     defaultValues: { name: team?.name },
