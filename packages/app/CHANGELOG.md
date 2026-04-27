@@ -1,5 +1,14 @@
 # @hyperdx/app
 
+## 2.24.2
+
+### Patch Changes
+
+- 4e9caec: Support per-signal OTLP exporter endpoints for Hyperdx internal telemetry
+- c2a9f96: feat: Add more dashboard onClick linking options
+- Updated dependencies [c2a9f96]
+  - @hyperdx/common-utils@0.18.2
+
 ## 2.24.1
 
 ### Patch Changes
