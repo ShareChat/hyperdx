@@ -60,13 +60,13 @@ export const IS_CLICKHOUSE_BUILD =
 export const NOW = Date.now();
 
 export const GOOGLE_SSO_ENABLED =
-  process.env.NEXT_PUBLIC_GOOGLE_SSO_ENABLED === 'true';
+  env('NEXT_PUBLIC_GOOGLE_SSO_ENABLED') === 'true';
 
 export const IS_LIVE_TAIL_ENABLED =
-  (process.env.NEXT_PUBLIC_IS_LIVE_TAIL_ENABLED ?? 'true') === 'true';
+  (env('NEXT_PUBLIC_IS_LIVE_TAIL_ENABLED') ?? 'true') === 'true';
 
 const _rawAutocompleteLimit = parseInt(
-  process.env.NEXT_PUBLIC_AUTOCOMPLETE_SUGGESTIONS_LIMIT ?? '',
+  env('NEXT_PUBLIC_AUTOCOMPLETE_SUGGESTIONS_LIMIT') ?? '',
   10,
 );
 export const AUTOCOMPLETE_SUGGESTIONS_LIMIT =
@@ -75,7 +75,7 @@ export const AUTOCOMPLETE_SUGGESTIONS_LIMIT =
     : 10;
 
 const _rawAutocompleteMinChars = parseInt(
-  process.env.NEXT_PUBLIC_AUTOCOMPLETE_MIN_CHARS ?? '',
+  env('NEXT_PUBLIC_AUTOCOMPLETE_MIN_CHARS') ?? '',
   10,
 );
 export const AUTOCOMPLETE_MIN_CHARS =
@@ -88,7 +88,7 @@ export const AUTOCOMPLETE_MIN_CHARS =
  * (Connections, Query Settings). When empty, all users have access (default behaviour).
  */
 export const PRIVILEGED_EMAILS: string[] = (
-  process.env.NEXT_PUBLIC_PRIVILEGED_EMAILS ?? ''
+  env('NEXT_PUBLIC_PRIVILEGED_EMAILS') ?? ''
 )
   .split(',')
   .map(e => e.trim().toLowerCase())

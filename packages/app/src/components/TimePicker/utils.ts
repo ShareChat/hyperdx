@@ -74,8 +74,10 @@ export function parseTimeRangeInput(
 
 export const LIVE_TAIL_TIME_QUERY = 'Live Tail' as const;
 
+import { env } from 'next-runtime-env';
+
 const _rawLiveTailDuration = parseInt(
-  process.env.NEXT_PUBLIC_LIVE_TAIL_DURATION_MS ?? '',
+  env('NEXT_PUBLIC_LIVE_TAIL_DURATION_MS') ?? '',
   10,
 );
 export const LIVE_TAIL_DURATION_MS =
