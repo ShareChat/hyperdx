@@ -39,6 +39,8 @@ ENV NX_DAEMON=false
 
 # Build packages in dependency order
 RUN yarn workspace @hyperdx/common-utils build
+# CACHE_BUST_API: increment this value to force Docker to rebuild from this layer
+ARG CACHE_BUST_API=2
 RUN yarn workspace @hyperdx/api build
 RUN test -f packages/api/build/index.js || (echo "ERROR: api/build/index.js missing — tsc may have silently failed" && ls -la packages/api/ && exit 1)
 RUN yarn workspace @hyperdx/app build
