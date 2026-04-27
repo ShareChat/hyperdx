@@ -83,7 +83,7 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
-    "start": "node ./build/index.js",
+    "start": "node ./build/src/index.js",
     "dev": "DOTENV_CONFIG_PATH=.env.development nodemon --exec 'ts-node' --transpile-only -r tsconfig-paths/register -r dotenv-expand/config -r '@hyperdx/node-opentelemetry/build/src/tracing' ./src/index.ts",
     "dev:mcp": "npx @modelcontextprotocol/inspector",
     "dev-task": "DOTENV_CONFIG_PATH=.env.development nodemon --exec 'ts-node' --transpile-only -r tsconfig-paths/register -r dotenv-expand/config -r '@hyperdx/node-opentelemetry/build/src/tracing' ./src/tasks/index.ts",
