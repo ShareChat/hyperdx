@@ -75,10 +75,8 @@ COPY --chown=nodejs:nodejs --from=builder /app/packages/common-utils/dist ./pack
 COPY --chown=nodejs:nodejs --from=builder /app/packages/common-utils/package.json ./packages/common-utils/package.json
 
 # Copy node_modules for runtime dependencies
-# (concurrently is in the root node_modules, no global install needed)
+# Yarn 4 workspaces hoist all deps to root node_modules; no per-package node_modules exist
 COPY --chown=nodejs:nodejs --from=builder /app/node_modules ./node_modules
-COPY --chown=nodejs:nodejs --from=builder /app/packages/api/node_modules ./packages/api/node_modules
-COPY --chown=nodejs:nodejs --from=builder /app/packages/common-utils/node_modules ./packages/common-utils/node_modules
 
 # Copy and set up entry script
 COPY --chown=nodejs:nodejs docker/hyperdx/entry.prod.sh /etc/local/entry.sh
