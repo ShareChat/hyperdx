@@ -1,5 +1,11 @@
 # @hyperdx/common-utils
 
+## 0.18.2
+
+### Patch Changes
+
+- c2a9f96: feat: Add more dashboard onClick linking options
+
 ## 0.18.1
 
 ### Patch Changes
