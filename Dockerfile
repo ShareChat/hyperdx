@@ -12,7 +12,7 @@ WORKDIR /app
 COPY .yarn ./.yarn
 COPY .yarnrc.yml yarn.lock package.json nx.json .prettierrc .prettierignore tsconfig.base.json ./
 
-# Copy package.json files for all packages
+# Copy package.json files for all packages (needed for yarn install workspace resolution)
 COPY ./packages/common-utils/package.json ./packages/common-utils/
 COPY ./packages/api/package.json ./packages/api/
 COPY ./packages/app/package.json ./packages/app/
@@ -26,9 +26,18 @@ FROM base AS builder
 
 WORKDIR /app
 
-# Copy source code for all packages
+# Copy common-utils source
 COPY ./packages/common-utils ./packages/common-utils
-COPY ./packages/api ./packages/api
+
+# Copy API source selectively: only src/ and bin/ so tsc infers rootDir=src/,
+# keeping compiled output flat at build/index.js (matching bin/hyperdx expectations).
+# Copying migrations/ or scripts/ would shift rootDir to the package root and break tsc-alias.
+COPY ./packages/api/src ./packages/api/src
+COPY ./packages/api/bin ./packages/api/bin
+COPY ./packages/api/tsconfig.json ./packages/api/tsconfig.json
+COPY ./packages/api/tsconfig.build.json ./packages/api/tsconfig.build.json
+
+# Copy app source
 COPY ./packages/app ./packages/app
 
 # Set build environment variables
@@ -39,10 +48,11 @@ ENV NX_DAEMON=false
 
 # Build packages in dependency order
 RUN yarn workspace @hyperdx/common-utils build
-# CACHE_BUST_API: increment this value to force Docker to rebuild from this layer
-ARG CACHE_BUST_API=3
+# CACHE_BUST_API: increment to force rebuild of this layer
+ARG CACHE_BUST_API=4
 RUN yarn workspace @hyperdx/api build
-RUN test -f packages/api/build/src/index.js || (echo "ERROR: api/build/src/index.js missing after build" && find packages/api/build -name "*.js" | head -10 && exit 1)
+RUN test -f packages/api/build/index.js || \
+    (echo "ERROR: packages/api/build/index.js missing" && find packages/api/build -name "*.js" | head -20 && exit 1)
 RUN yarn workspace @hyperdx/app build
 
 # Production stage
@@ -61,7 +71,7 @@ USER nodejs
 
 WORKDIR /app
 
-# Copy built API (builds to 'build/', not 'dist/')
+# Copy built API
 COPY --chown=nodejs:nodejs --from=builder /app/packages/api/build ./packages/api/build
 COPY --chown=nodejs:nodejs --from=builder /app/packages/api/bin ./packages/api/bin
 COPY --chown=nodejs:nodejs --from=builder /app/packages/api/package.json ./packages/api/package.json
