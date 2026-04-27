@@ -39,8 +39,8 @@ ENV NX_DAEMON=false
 
 # Build packages in dependency order
 RUN yarn workspace @hyperdx/common-utils build
-RUN yarn workspace @hyperdx/api build && \
-    test -f packages/api/build/index.js || (echo "ERROR: packages/api/build/index.js not found after build" && exit 1)
+RUN yarn workspace @hyperdx/api build
+RUN test -f packages/api/build/index.js || (echo "ERROR: api/build/index.js missing — tsc may have silently failed" && ls -la packages/api/ && exit 1)
 RUN yarn workspace @hyperdx/app build
 
 # Production stage
