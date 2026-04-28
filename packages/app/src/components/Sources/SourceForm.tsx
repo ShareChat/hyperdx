@@ -505,6 +505,140 @@ function HighlightedAttributeExpressionsFormRow({
   );
 }
 
+type DefaultFilterRowProps = Omit<TableModelProps, 'setValue'> & {
+  id: string;
+  index: number;
+  databaseName: string;
+  tableName: string;
+  connectionId: string;
+  removeDefaultFilter: (index: number) => void;
+};
+
+function DefaultFilterRow({
+  id,
+  index,
+  control,
+  databaseName,
+  tableName,
+  connectionId,
+  removeDefaultFilter,
+}: DefaultFilterRowProps) {
+  return (
+    <React.Fragment key={id}>
+      <Grid.Col span={3} pe={0}>
+        <div
+          style={{ display: 'contents' }}
+          data-name={`defaultFilters.${index}.sqlExpression`}
+        >
+          <SQLInlineEditorControlled
+            tableConnection={{ databaseName, tableName, connectionId }}
+            control={control}
+            name={`defaultFilters.${index}.sqlExpression`}
+            disableKeywordAutocomplete
+            placeholder="ResourceAttributes['http.host']"
+          />
+        </div>
+      </Grid.Col>
+      <Grid.Col span={2} ps="xs">
+        <Flex align="center" gap="sm">
+          <InputControlled
+            control={control}
+            name={`defaultFilters.${index}.displayLabel`}
+            placeholder="Display Label (e.g. Cluster Name)"
+          />
+          <ActionIcon
+            size="xs"
+            variant="subtle"
+            color="gray"
+            onClick={() => removeDefaultFilter(index)}
+          >
+            <IconTrash size={16} />
+          </ActionIcon>
+        </Flex>
+      </Grid.Col>
+      <Grid.Col span={3} pe={0}>
+        <InputControlled
+          control={control}
+          name={`defaultFilters.${index}.luceneExpression`}
+          placeholder="Lucene path (Optional)"
+        />
+      </Grid.Col>
+      <Grid.Col span={1} pe={0}>
+        <Text me="sm" mt={6}>
+          <Tooltip
+            label="An optional Lucene version of the above expression, used when searching for this filter value."
+            color="dark"
+            c="white"
+            multiline
+            maw={600}
+          >
+            <IconHelpCircle size={14} className="cursor-pointer" />
+          </Tooltip>
+        </Text>
+      </Grid.Col>
+    </React.Fragment>
+  );
+}
+
+function DefaultFiltersFormRow({
+  control,
+  label,
+  helpText,
+}: Omit<TableModelProps, 'setValue'> & {
+  label: string;
+  helpText?: string;
+}) {
+  const databaseName = useWatch({
+    control,
+    name: 'from.databaseName',
+    defaultValue: DEFAULT_DATABASE,
+  });
+  const tableName = useWatch({ control, name: 'from.tableName' });
+  const connectionId = useWatch({ control, name: 'connection' });
+
+  const {
+    fields: defaultFilters,
+    append: appendDefaultFilter,
+    remove: removeDefaultFilter,
+  } = useFieldArray({ control, name: 'defaultFilters' });
+
+  return (
+    <FormRow label={label} helpText={helpText}>
+      <Grid columns={5}>
+        {defaultFilters.map(({ id }, index) => (
+          <DefaultFilterRow
+            key={id}
+            {...{
+              id,
+              index,
+              control,
+              databaseName,
+              tableName,
+              connectionId,
+              removeDefaultFilter,
+            }}
+          />
+        ))}
+      </Grid>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="align-self-start"
+        mt={defaultFilters.length ? 'sm' : 'md'}
+        onClick={() => {
+          appendDefaultFilter(
+            { sqlExpression: '', displayLabel: '', luceneExpression: '' },
+            { shouldFocus: false },
+          );
+        }}
+      >
+        <IconCirclePlus size={14} className="me-2" />
+        Add filter field
+      </Button>
+    </FormRow>
+  );
+}
+
 /** Component for configuring one or more materialized views */
 function MaterializedViewsFormSection({ control, setValue }: TableModelProps) {
   const databaseName = useWatch({
@@ -1299,6 +1433,11 @@ function LogTableModelForm(props: TableModelProps) {
           />
         </FormRow>
         <Divider />
+        <DefaultFiltersFormRow
+          control={control}
+          label="Default Filters"
+          helpText="Optional curated list of filters shown in the left panel of /search. When provided, the panel shows ONLY these fields (plus any active selections or pinned fields). Use 'Display Label' for a friendly name visible in the panel; users can hover to see the underlying SQL expression."
+        />
         <HighlightedAttributeExpressionsFormRow
           {...props}
           name="highlightedRowAttributeExpressions"
@@ -1608,6 +1747,11 @@ function TraceTableModelForm(props: TableModelProps) {
         />
       </FormRow>
       <Divider />
+      <DefaultFiltersFormRow
+        control={control}
+        label="Default Filters"
+        helpText="Optional curated list of filters shown in the left panel of /search. When provided, the panel shows ONLY these fields (plus any active selections or pinned fields). Use 'Display Label' for a friendly name visible in the panel; users can hover to see the underlying SQL expression."
+      />
       <HighlightedAttributeExpressionsFormRow
         {...props}
         name="highlightedRowAttributeExpressions"
@@ -1679,6 +1823,12 @@ function SessionTableModelForm({ control }: TableModelProps) {
             placeholder="ResourceAttributes"
           />
         </FormRow>
+        <Divider />
+        <DefaultFiltersFormRow
+          control={control}
+          label="Default Filters"
+          helpText="Optional curated list of filters shown in the left panel of /search. When provided, the panel shows ONLY these fields (plus any active selections or pinned fields). Use 'Display Label' for a friendly name visible in the panel; users can hover to see the underlying SQL expression."
+        />
       </Stack>
     </>
   );
@@ -1777,6 +1927,12 @@ function MetricTableModelForm({ control, setValue }: TableModelProps) {
         >
           <SourceSelectControlled control={control} name="logSourceId" />
         </FormRow>
+        <Divider />
+        <DefaultFiltersFormRow
+          control={control}
+          label="Default Filters"
+          helpText="Optional curated list of filters shown in the left panel of /search. When provided, the panel shows ONLY these fields (plus any active selections or pinned fields). Use 'Display Label' for a friendly name visible in the panel; users can hover to see the underlying SQL expression."
+        />
       </Stack>
     </>
   );

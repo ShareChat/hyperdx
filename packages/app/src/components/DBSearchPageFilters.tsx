@@ -379,6 +379,7 @@ type SelectedValues = {
 
 export type FilterGroupProps = {
   name: string;
+  displayName?: string;
   options: { value: string | boolean; label: string }[];
   optionsLoading?: boolean;
   selectedValues?: SelectedValues;
@@ -877,6 +878,7 @@ const voidFunc = () => {};
 
 export const FilterGroup = ({
   name,
+  displayName,
   options,
   optionsLoading,
   selectedValues: _selectedValues,
@@ -963,7 +965,9 @@ export const FilterGroup = ({
               className={hasOptions ? '' : 'opacity-50'}
             >
               <Tooltip
-                openDelay={name.length > 26 ? 0 : 1500}
+                openDelay={
+                  displayName ? 0 : name.length > 26 ? 0 : 1500
+                }
                 label={name}
                 position="top"
                 withArrow
@@ -971,7 +975,7 @@ export const FilterGroup = ({
                 color="gray"
               >
                 <Text size="xs" fw="500" truncate="end">
-                  {name}
+                  {displayName ?? name}
                   {showFilterCounts && (
                     <Text
                       component="span"
@@ -1154,9 +1158,40 @@ const DBSearchPageFiltersComponent = ({
 
   const [showMoreFields, setShowMoreFields] = useState(false);
 
+  const displayLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const f of source?.defaultFilters ?? []) {
+      if (f.displayLabel?.trim()) {
+        map.set(f.sqlExpression.trim(), f.displayLabel.trim());
+      }
+    }
+    return map;
+  }, [source]);
+
   const keysToFetch = useMemo(() => {
     if (!data) {
       return [];
+    }
+
+    // When the source defines a curated filter list, use it as the allow-list.
+    // Always union with currently selected/pinned keys so user state never
+    // disappears, and respect the "Show more fields" escape hatch.
+    const curated = source?.defaultFilters ?? [];
+    if (curated.length > 0 && !showMoreFields) {
+      const curatedPaths = curated
+        .map(f => f.sqlExpression.trim())
+        .filter(Boolean);
+      const extras = new Set<string>([
+        ...Object.keys(filterState),
+        ...curatedPaths,
+      ]);
+      for (const field of data) {
+        const path = mergePath(field.path, jsonColumns ?? []);
+        if (isFieldPinned(path) || isSharedFieldPinned(path)) extras.add(path);
+      }
+      return Array.from(extras).filter(
+        p => !['body', 'timestamp', '_hdx_body'].includes(p.toLowerCase()),
+      );
     }
 
     const strings = data
@@ -1199,6 +1234,7 @@ const DBSearchPageFiltersComponent = ({
     showMoreFields,
     isFieldPinned,
     isSharedFieldPinned,
+    source,
   ]);
 
   // Special case for live tail
@@ -1612,6 +1648,7 @@ const DBSearchPageFiltersComponent = ({
               key={`${keyPrefix}${facet.key}`}
               data-testid={`${keyPrefix}filter-group-${facet.key}`}
               name={cleanedFacetName(facet.key)}
+              displayName={displayLabelMap.get(facet.key)}
               showFilterCounts={showFilterCounts}
               options={facet.value.map(value => ({
                 value,
@@ -1680,6 +1717,7 @@ const DBSearchPageFiltersComponent = ({
       isLive,
       setFilterRange,
       tableMetadata,
+      displayLabelMap,
     ],
   );
 

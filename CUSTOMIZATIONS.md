@@ -426,3 +426,72 @@ const DEFAULT_REFRESH_FREQUENCY = LIVE_TAIL_REFRESH_INTERVAL_MS;
 ```
 
 ---
+
+### 9. Per-source default filter list with friendly display labels
+
+**Intent**: Allow each telemetry source to define an explicit curated list of
+fields shown in the left-hand filter panel on `/search`. Useful when multiple
+sources share the same `kind` (e.g. k8s logs, CF logs, k8s events are all
+`kind=log`) but need different filter sets. Each entry supports a user-friendly
+`Display Label` (e.g. `Cluster Name`) that is shown in the panel; hovering
+reveals the underlying SQL expression (e.g.
+`ResourceAttributes['k8s.cluster.name']`). When `defaultFilters` is configured
+on a source, the panel shows ONLY those fields (plus any currently-selected or
+personally/team-pinned fields). The existing "Show more fields" toggle still
+falls back to the full auto-detected heuristic.
+
+**No new env vars** — configuration is stored per-source in MongoDB via the
+existing sources API.
+
+**Last verified**: 2026-04-28
+
+#### Per-file diff
+
+##### `packages/common-utils/src/types.ts`
+
+Add `DefaultFilterExpressionsSchema` next to
+`HighlightedAttributeExpressionsSchema`, and add `defaultFilters` to
+`BaseSourceSchema` so all per-kind schemas inherit it:
+
+```typescript
+const DefaultFilterExpressionsSchema = z.array(
+  z.object({
+    sqlExpression: z.string().min(1, 'Filter SQL Expression is required'),
+    displayLabel: z.string().optional(),
+    luceneExpression: z.string().optional(),
+  }),
+);
+
+// In BaseSourceSchema:
+defaultFilters: DefaultFilterExpressionsSchema.optional(),
+```
+
+##### `packages/app/src/components/Sources/SourceForm.tsx`
+
+Add `DefaultFilterRow` and `DefaultFiltersFormRow` (mirror
+`HighlightedAttributeRow` / `HighlightedAttributeExpressionsFormRow`). Render
+`<DefaultFiltersFormRow>` before the `<HighlightedAttributeExpressionsFormRow>`
+blocks in `LogTableModelForm` and `TraceTableModelForm`, and before the closing
+`</Stack>` (after a `<Divider />`) in `SessionTableModelForm` and
+`MetricTableModelForm`.
+
+##### `packages/app/src/components/DBSearchPageFilters.tsx`
+
+Four changes:
+
+1. Add `displayName?: string` to `FilterGroupProps` and destructure it in
+   `FilterGroup`. In the `<Tooltip>` / `<Text>` block, render
+   `displayName ?? name` as the visible label while `name` (the SQL expression)
+   is always the Tooltip label.
+
+2. Add `displayLabelMap` memo built from `source.defaultFilters`.
+
+3. Override `keysToFetch` to use the curated list when `source.defaultFilters`
+   is non-empty (and "Show more fields" is off). Union with `filterState` keys
+   and pinned fields so user state is never lost.
+
+4. Pass `displayName={displayLabelMap.get(facet.key)}` to each `<FilterGroup>`
+   in the `renderFacets` callback. Add `displayLabelMap` to the
+   `useCallback` dependency array.
+
+---
