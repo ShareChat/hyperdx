@@ -92,6 +92,15 @@ const CC_TRACES_FILTERS: DefaultFilterEntry[] = [
   { expression: 'SpanAttributes.user.email', displayLabel: 'User Email' },
 ];
 
+const CF_RAW_LOGS_FILTERS: DefaultFilterEntry[] = [
+  { expression: 'tenant', displayLabel: 'Tenant' },
+  { expression: 'host', displayLabel: 'Host' },
+  { expression: 'path', displayLabel: 'Path' },
+  { expression: 'service', displayLabel: 'Service' },
+  { expression: 'cf_status', displayLabel: 'CF Status' },
+  { expression: 'method', displayLabel: 'Method' },
+];
+
 // ─── Config map ───────────────────────────────────────────────────────────────
 // Key = exact source name as configured in Settings → Sources.
 // Add a "Source Name:Connection Name" key to override for a specific connection.
@@ -114,8 +123,9 @@ export const DEFAULT_FILTERS_CONFIG: Record<string, DefaultFilterEntry[]> = {
   'Mum | CES': CES_FILTERS,
   'Mum | CC Logs': CC_LOGS_FILTERS,
   'Mum | CC Traces': CC_TRACES_FILTERS,
+  'Mum | CF Raw Logs': CF_RAW_LOGS_FILTERS,
 
   // US region
   'US | Logs': LOGS_FILTERS,
   'US | K8s Events': K8S_EVENTS_FILTERS,
-};
+}
