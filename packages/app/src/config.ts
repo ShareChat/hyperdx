@@ -94,6 +94,17 @@ export const PRIVILEGED_EMAILS: string[] = (
   .map(e => e.trim().toLowerCase())
   .filter(Boolean);
 
+const _rawLiveTailRefreshInterval = parseInt(
+  env('NEXT_PUBLIC_LIVE_TAIL_REFRESH_INTERVAL_MS') ?? '',
+  10,
+);
+/** Default live tail polling interval in ms. Must match one of the dropdown options (1000/2000/4000/10000/30000). Defaults to 10000. */
+export const LIVE_TAIL_REFRESH_INTERVAL_MS =
+  Number.isFinite(_rawLiveTailRefreshInterval) &&
+  _rawLiveTailRefreshInterval > 0
+    ? _rawLiveTailRefreshInterval
+    : 10000;
+
 // Features in development
 export const IS_K8S_DASHBOARD_ENABLED = true;
 export const IS_METRICS_ENABLED = true;
