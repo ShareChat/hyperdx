@@ -12,6 +12,19 @@ echo ""
 echo "Visit the HyperDX UI at $FRONTEND_URL"
 echo ""
 
+# Generate __ENV.js for next-runtime-env so NEXT_PUBLIC_* vars set at container
+# startup are available to the browser (next.config.mjs only runs at build time
+# in standalone mode, so configureRuntimeEnv() never fires at runtime).
+node -e "
+const fs = require('fs');
+const vars = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => k.startsWith('NEXT_PUBLIC_'))
+);
+const dest = './packages/app/packages/app/public/__ENV.js';
+fs.writeFileSync(dest, 'self.__ENV=' + JSON.stringify(vars) + ';');
+console.log('[startup] wrote ' + dest + ' with ' + Object.keys(vars).length + ' NEXT_PUBLIC_* vars');
+"
+
 # Use concurrently to run both the API and App servers
 ./node_modules/.bin/concurrently \
   "--kill-others-on-fail" \
