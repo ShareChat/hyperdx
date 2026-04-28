@@ -97,6 +97,9 @@ const sourceBaseSchema = new Schema<MongooseSourceBase>(
         message: '{PATH} exceeds the limit of 10',
       },
     },
+    defaultFilters: {
+      type: mongoose.Schema.Types.Array,
+    },
   },
   {
     discriminatorKey: 'kind',
