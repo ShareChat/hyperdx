@@ -233,7 +233,7 @@ Key changes:
 
    Single-quotes in the prefix are escaped to prevent SQL injection. React Query detects the changed `chartConfig` object and fires a new query.
 
-4. **Timestamp-scoped date range** — `timestampValueExpression` is read from `tableConnection` (populated by `tcFromSource`) so the date range filter is actually applied to the CTE. Previously `timestampValueExpression` was hardcoded to `''`, causing `renderChartConfig` to skip the date filter and scan the full table. `Date.now()` is computed inline (not the frozen module-load-time `NOW` constant) so the window is always relative to the current keystroke.
+4. **Timestamp-scoped date range** — `timestampValueExpression` is read from `tableConnection` (populated by `tcFromSource`) so the date range filter is actually applied to the CTE. Previously `timestampValueExpression` was hardcoded to `''`, causing `renderChartConfig` to skip the date filter and scan the full table. `Date.now()` is rounded to the nearest minute so repeated keystrokes with the same prefix within a minute hit React Query's cache instead of firing a new ClickHouse query each time.
 
 5. **Return value** — returns `keyValCompleteOptions` directly instead of `deduplicate2dArray([fieldCompleteOptions, keyValCompleteOptions])`. When `searchField` is active and `keyVals` are loaded, only formatted value pairs are returned (not field names). Falls back to `fieldCompleteOptions` when no field is detected or values are still loading.
 
