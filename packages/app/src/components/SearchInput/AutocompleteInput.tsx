@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import cx from 'classnames';
-import Fuse from 'fuse.js';
 import { Popover, Textarea, UnstyledButton } from '@mantine/core';
 
 import { AUTOCOMPLETE_MIN_CHARS, AUTOCOMPLETE_SUGGESTIONS_LIMIT } from '@/config';
@@ -82,8 +81,6 @@ export default function AutocompleteInput({
   const [selectedQueryHistoryIndex, setSelectedQueryHistoryIndex] =
     useState(-1);
 
-  const [page, setPage] = useState(0);
-
   // query search history
   const [queryHistory, setQueryHistory] = useQueryHistory(queryHistoryType);
   const queryHistoryList = useMemo(() => {
@@ -102,16 +99,6 @@ export default function AutocompleteInput({
     queryHistoryList.length > 0 &&
     queryHistoryType;
 
-  const fuse = useMemo(
-    () =>
-      new Fuse(autocompleteOptions ?? [], {
-        keys: ['value'],
-        threshold: 0,
-        ignoreLocation: true,
-      }),
-    [autocompleteOptions],
-  );
-
   const debouncedValue = useDebounce(value ?? '', 200);
   const suggestedProperties = useMemo(() => {
     const lastToken = getLastToken(debouncedValue);
@@ -121,25 +108,19 @@ export default function AutocompleteInput({
     }
     if (!lastToken.length) return [];
 
-    const fuseTerm = extractFuseSearchTerm(lastToken);
+    const searchTerm = extractFuseSearchTerm(lastToken);
     // bare `field:` (empty value portion) or pure wildcard → show all fetched options
-    if (!fuseTerm.length) return autocompleteOptions ?? [];
+    if (!searchTerm.length) return autocompleteOptions ?? [];
     // enforce minimum character threshold before filtering
-    if (fuseTerm.length < AUTOCOMPLETE_MIN_CHARS) return [];
+    if (searchTerm.length < AUTOCOMPLETE_MIN_CHARS) return [];
 
-    return fuse.search(fuseTerm).map(result => result.item);
-  }, [debouncedValue, fuse, autocompleteOptions, showSuggestionsOnEmpty]);
+    const lower = searchTerm.toLowerCase();
+    return (autocompleteOptions ?? []).filter(opt =>
+      opt.value.toLowerCase().includes(lower),
+    );
+  }, [debouncedValue, autocompleteOptions, showSuggestionsOnEmpty]);
 
-  // Reset pagination and selection whenever the suggestion list changes
-  useEffect(() => {
-    setPage(0);
-    setSelectedAutocompleteIndex(-1);
-  }, [suggestedProperties]);
-
-  const totalPages = Math.ceil(suggestedProperties.length / pageSize);
-  const pageStart = page * pageSize;
-  const pageEnd = Math.min((page + 1) * pageSize, suggestedProperties.length) - 1;
-  const pagedSuggestions = suggestedProperties.slice(pageStart, pageEnd + 1);
+  const visibleSuggestions = suggestedProperties.slice(0, pageSize);
 
   const onSelectSearchHistory = (query: string) => {
     setSelectedQueryHistoryIndex(-1);
@@ -235,13 +216,13 @@ export default function AutocompleteInput({
               // Autocomplete Navigation/Acceptance Keys
               if (e.key === 'Tab' && e.target instanceof HTMLTextAreaElement) {
                 if (
-                  suggestedProperties.length > 0 &&
+                  visibleSuggestions.length > 0 &&
                   selectedAutocompleteIndex >= 0 &&
-                  selectedAutocompleteIndex < suggestedProperties.length
+                  selectedAutocompleteIndex < visibleSuggestions.length
                 ) {
                   e.preventDefault();
                   onAcceptSuggestion(
-                    suggestedProperties[selectedAutocompleteIndex].value,
+                    visibleSuggestions[selectedAutocompleteIndex].value,
                   );
                 }
               }
@@ -250,13 +231,13 @@ export default function AutocompleteInput({
                 e.target instanceof HTMLTextAreaElement
               ) {
                 if (
-                  suggestedProperties.length > 0 &&
+                  visibleSuggestions.length > 0 &&
                   selectedAutocompleteIndex >= 0 &&
-                  selectedAutocompleteIndex < suggestedProperties.length
+                  selectedAutocompleteIndex < visibleSuggestions.length
                 ) {
                   e.preventDefault();
                   onAcceptSuggestion(
-                    suggestedProperties[selectedAutocompleteIndex].value,
+                    visibleSuggestions[selectedAutocompleteIndex].value,
                   );
                 } else {
                   // Allow shift+enter to still create new lines
@@ -273,29 +254,18 @@ export default function AutocompleteInput({
                 e.key === 'ArrowDown' &&
                 e.target instanceof HTMLTextAreaElement
               ) {
-                if (suggestedProperties.length > 0) {
-                  const next = Math.min(
-                    selectedAutocompleteIndex + 1,
-                    suggestedProperties.length - 1,
+                if (visibleSuggestions.length > 0) {
+                  setSelectedAutocompleteIndex(i =>
+                    Math.min(i + 1, visibleSuggestions.length - 1),
                   );
-                  // Advance page when crossing the page boundary
-                  if (next > pageEnd && page < totalPages - 1) {
-                    setPage(p => p + 1);
-                  }
-                  setSelectedAutocompleteIndex(next);
                 }
               }
               if (
                 e.key === 'ArrowUp' &&
                 e.target instanceof HTMLTextAreaElement
               ) {
-                if (suggestedProperties.length > 0) {
-                  const prev = Math.max(selectedAutocompleteIndex - 1, 0);
-                  // Retreat page when crossing the page boundary
-                  if (prev < pageStart && page > 0) {
-                    setPage(p => p - 1);
-                  }
-                  setSelectedAutocompleteIndex(prev);
+                if (visibleSuggestions.length > 0) {
+                  setSelectedAutocompleteIndex(i => Math.max(i - 1, 0));
                 }
               }
             }}
@@ -317,70 +287,32 @@ export default function AutocompleteInput({
             <div className={styles.aboveSuggestions}>{aboveSuggestions}</div>
           )}
           <div>
-            {suggestedProperties.length > 0 && (
+            {visibleSuggestions.length > 0 && (
               <div className={styles.suggestionsSection}>
                 <div className={styles.suggestionsHeaderRow}>
                   <div className={styles.suggestionsHeader}>
                     {suggestionsHeader}
                   </div>
-                  {totalPages > 1 ? (
-                    <div className={styles.pagination}>
-                      <UnstyledButton
-                        className={styles.pageButton}
-                        disabled={page === 0}
-                        onClick={() => {
-                          setPage(p => p - 1);
-                          setSelectedAutocompleteIndex(-1);
-                        }}
-                        aria-label="Previous suggestions"
-                      >
-                        ‹
-                      </UnstyledButton>
-                      <span className={styles.pageIndicator}>
-                        {page + 1} / {totalPages}
-                      </span>
-                      <UnstyledButton
-                        className={styles.pageButton}
-                        disabled={page === totalPages - 1}
-                        onClick={() => {
-                          setPage(p => p + 1);
-                          setSelectedAutocompleteIndex(-1);
-                        }}
-                        aria-label="Next suggestions"
-                      >
-                        ›
-                      </UnstyledButton>
+                  {suggestedProperties.length > pageSize && (
+                    <div className={styles.suggestionsLimit}>
+                      (Showing Top {pageSize})
                     </div>
-                  ) : (
-                    suggestedProperties.length > pageSize && (
-                      <div className={styles.suggestionsLimit}>
-                        (Showing Top {pageSize})
-                      </div>
-                    )
                   )}
                 </div>
-                {pagedSuggestions.map(({ value, label }, i) => {
-                  const absoluteIdx = pageStart + i;
-                  return (
-                    <div
-                      className={cx(
-                        styles.suggestionItem,
-                        selectedAutocompleteIndex === absoluteIdx &&
-                          styles.selected,
-                      )}
-                      role="button"
-                      key={value}
-                      onMouseOver={() => {
-                        setSelectedAutocompleteIndex(absoluteIdx);
-                      }}
-                      onClick={() => {
-                        onAcceptSuggestion(value);
-                      }}
-                    >
-                      <span className={styles.suggestionLabel}>{label}</span>
-                    </div>
-                  );
-                })}
+                {visibleSuggestions.map(({ value, label }, i) => (
+                  <div
+                    className={cx(
+                      styles.suggestionItem,
+                      selectedAutocompleteIndex === i && styles.selected,
+                    )}
+                    role="button"
+                    key={value}
+                    onMouseOver={() => setSelectedAutocompleteIndex(i)}
+                    onClick={() => onAcceptSuggestion(value)}
+                  >
+                    <span className={styles.suggestionLabel}>{label}</span>
+                  </div>
+                ))}
               </div>
             )}
           </div>

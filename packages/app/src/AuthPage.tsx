@@ -155,6 +155,21 @@ export default function AuthPage({ action }: { action: 'register' | 'login' }) {
             <Stack gap="xl">
               <Paper p={34} shadow="md" radius="md">
                 <Stack gap="lg">
+                  {action === 'login' && config.GOOGLE_SSO_ENABLED && (
+                    <>
+                      <Button
+                        component="a"
+                        href="/api/login/google"
+                        variant="secondary"
+                        size="md"
+                        leftSection={<IconBrandGoogle size={18} />}
+                        data-test-id="google-sso-button"
+                      >
+                        Sign in with Google
+                      </Button>
+                      <Divider label="or" labelPosition="center" />
+                    </>
+                  )}
                   <TextInput
                     label="Email"
                     size="md"
@@ -215,21 +230,6 @@ export default function AuthPage({ action }: { action: 'register' | 'login' }) {
                         ? 'Register'
                         : 'Login'}
                   </Button>
-                  {action === 'login' && config.GOOGLE_SSO_ENABLED && (
-                    <>
-                      <Divider label="or" labelPosition="center" />
-                      <Button
-                        component="a"
-                        href="/api/login/google"
-                        variant="secondary"
-                        size="md"
-                        leftSection={<IconBrandGoogle size={18} />}
-                        data-test-id="google-sso-button"
-                      >
-                        Sign in with Google
-                      </Button>
-                    </>
-                  )}
                 </Stack>
               </Paper>
 
