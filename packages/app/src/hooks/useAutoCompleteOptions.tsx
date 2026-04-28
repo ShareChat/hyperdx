@@ -5,14 +5,19 @@ import {
 } from '@hyperdx/common-utils/dist/core/metadata';
 import { BuilderChartConfigWithDateRange } from '@hyperdx/common-utils/dist/types';
 
-import { NOW } from '@/config';
+import { AUTOCOMPLETE_DATE_RANGE_MS, AUTOCOMPLETE_MIN_CHARS, NOW } from '@/config';
 import {
-  deduplicate2dArray,
   useJsonColumns,
   useMultipleAllFields,
   useMultipleGetKeyValues,
 } from '@/hooks/useMetadata';
-import { getLastToken, mergePath, stripNegation, toArray } from '@/utils';
+import {
+  getLastToken,
+  mergePath,
+  stripNegation,
+  toArray,
+  useDebounce,
+} from '@/utils';
 
 export interface ILanguageFormatter {
   formatFieldValue: (f: Field) => string;
@@ -107,22 +112,41 @@ export function useAutoCompleteOptions(
     [searchField, jsonColumns],
   );
 
+  // Extract the raw value prefix the user is typing after the colon, e.g.
+  // `ServiceName:"user-ent` → `user-ent`. Empty when no field is active.
+  const valuePrefix = useMemo(() => {
+    if (!searchField) return '';
+    const lastToken = stripNegation(getLastToken(value));
+    const colon = lastToken.indexOf(':');
+    if (colon < 0) return '';
+    let raw = lastToken.slice(colon + 1);
+    if (raw.startsWith('"')) raw = raw.slice(1);
+    if (raw.endsWith('"')) raw = raw.slice(0, -1);
+    return raw.replace(/\*/g, '');
+  }, [searchField, value]);
+
+  // Debounce so we don't fire a new ClickHouse query on every keystroke
+  const debouncedValuePrefix = useDebounce(valuePrefix, 300);
+
   // hooks to get key values
-  const chartConfigs: BuilderChartConfigWithDateRange[] = toArray(
-    tableConnection,
-  ).map(({ databaseName, tableName, connectionId }) => ({
-    connection: connectionId,
-    from: {
-      databaseName,
-      tableName,
-    },
-    timestampValueExpression: '',
-    select: '',
-    where: '',
-    // TODO: Pull in date for query as arg
-    // just assuming 1/2 day is okay to query over right now
-    dateRange: [new Date(NOW - (86400 * 1000) / 2), new Date(NOW)],
-  }));
+  const chartConfigs: BuilderChartConfigWithDateRange[] = useMemo(() => {
+    const fieldPath =
+      searchField && debouncedValuePrefix.length >= AUTOCOMPLETE_MIN_CHARS
+        ? formatter.formatFieldValue(searchField)
+        : null;
+    // Escape single quotes to prevent SQL injection from the typed prefix
+    const safePrefix = debouncedValuePrefix.replace(/'/g, "''");
+    return toArray(tableConnection).map(({ databaseName, tableName, connectionId }) => ({
+      connection: connectionId,
+      from: { databaseName, tableName },
+      timestampValueExpression: '',
+      select: '',
+      // Push prefix filter into ClickHouse so we aren't limited to the
+      // top-N values fetched without any value-level filtering
+      where: fieldPath ? `${fieldPath} ILIKE '${safePrefix}%'` : '',
+      dateRange: [new Date(NOW - AUTOCOMPLETE_DATE_RANGE_MS), new Date(NOW)],
+    }));
+  }, [tableConnection, searchField, debouncedValuePrefix, formatter]);
 
   const { data: keyVals } = useMultipleGetKeyValues({
     chartConfigs,
@@ -183,8 +207,9 @@ export function useAutoCompleteOptions(
     return output;
   }, [fieldCompleteOptions, keyVals, searchField, formatter]);
 
-  // combine all autocomplete options
-  return useMemo(() => {
-    return deduplicate2dArray([fieldCompleteOptions, keyValCompleteOptions]);
-  }, [fieldCompleteOptions, keyValCompleteOptions]);
+  // When a field is detected and values are loaded, keyValCompleteOptions contains
+  // only the fetched values. When no field is detected, it falls back to
+  // fieldCompleteOptions. Returning it directly prevents field names from leaking
+  // into the dropdown while the user is completing a value (e.g. ServiceName:"user").
+  return keyValCompleteOptions;
 }

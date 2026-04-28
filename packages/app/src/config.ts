@@ -105,6 +105,15 @@ export const LIVE_TAIL_REFRESH_INTERVAL_MS =
     ? _rawLiveTailRefreshInterval
     : 900000;
 
+const _rawAutocompleteRange = parseInt(
+  env('NEXT_PUBLIC_AUTOCOMPLETE_DATE_RANGE_MS') ?? '',
+  10,
+);
+export const AUTOCOMPLETE_DATE_RANGE_MS =
+  Number.isFinite(_rawAutocompleteRange) && _rawAutocompleteRange > 0
+    ? _rawAutocompleteRange
+    : 3600000; // 1 hour default
+
 // Features in development
 export const IS_K8S_DASHBOARD_ENABLED = true;
 export const IS_METRICS_ENABLED = true;
