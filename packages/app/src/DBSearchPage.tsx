@@ -159,11 +159,9 @@ import { FormatTime } from './useFormatTime';
 import searchPageStyles from '../styles/SearchPage.module.scss';
 
 const LIVE_TAIL_REFRESH_FREQUENCY_OPTIONS = [
-  { value: '1000', label: '1s' },
-  { value: '2000', label: '2s' },
-  { value: '4000', label: '4s' },
-  { value: '10000', label: '10s' },
-  { value: '30000', label: '30s' },
+  { value: '900000', label: '15m' },
+  { value: '1800000', label: '30m' },
+  { value: '3600000', label: '1h' },
 ];
 const DEFAULT_REFRESH_FREQUENCY = LIVE_TAIL_REFRESH_INTERVAL_MS;
 

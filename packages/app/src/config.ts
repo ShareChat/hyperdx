@@ -103,7 +103,7 @@ export const LIVE_TAIL_REFRESH_INTERVAL_MS =
   Number.isFinite(_rawLiveTailRefreshInterval) &&
   _rawLiveTailRefreshInterval > 0
     ? _rawLiveTailRefreshInterval
-    : 10000;
+    : 900000;
 
 // Features in development
 export const IS_K8S_DASHBOARD_ENABLED = true;
