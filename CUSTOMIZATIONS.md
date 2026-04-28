@@ -16,6 +16,12 @@ upstream release, re-apply each section and verify against the upstream diff.
 4. Mark the "Last verified" date once you have confirmed the customization
    still applies after the upgrade.
 
+> **Important — runtime env vars**: all `NEXT_PUBLIC_*` env vars introduced by
+> this fork use `env()` from `next-runtime-env` instead of `process.env`, so
+> they can be injected at container startup without rebuilding the image. See
+> customization #7 for the companion `entry.prod.sh` change that makes this work
+> in standalone mode.
+
 ---
 
 ## Customizations
@@ -47,14 +53,14 @@ Add after the existing feature-flag block (near `IS_DASHBOARD_LINKING_ENABLED`):
 
 ```typescript
 export const IS_LIVE_TAIL_ENABLED =
-  (process.env.NEXT_PUBLIC_IS_LIVE_TAIL_ENABLED ?? 'true') === 'true';
+  (env('NEXT_PUBLIC_IS_LIVE_TAIL_ENABLED') ?? 'true') === 'true';
 ```
 
 ---
 
 ##### `packages/app/src/components/TimePicker/utils.ts`
 
-Replace the static constant:
+Add `import { env } from 'next-runtime-env';` and replace the static constant:
 
 ```typescript
 // before
@@ -63,8 +69,10 @@ export const LIVE_TAIL_DURATION_MS = ms('15m');
 
 ```typescript
 // after
+import { env } from 'next-runtime-env';
+
 const _rawLiveTailDuration = parseInt(
-  process.env.NEXT_PUBLIC_LIVE_TAIL_DURATION_MS ?? '',
+  env('NEXT_PUBLIC_LIVE_TAIL_DURATION_MS') ?? '',
   10,
 );
 export const LIVE_TAIL_DURATION_MS =
@@ -90,73 +98,10 @@ import { IS_LIVE_TAIL_ENABLED, IS_LOCAL_MODE } from '@/config';
 **2. Derive `effectiveIsLive`** immediately after the `isLive` `useQueryState` call:
 
 ```typescript
-const [isLive, setIsLive] = useQueryState(
-  'isLive',
-  parseAsBoolean.withDefault(true),
-);
-const effectiveIsLive = isLive && IS_LIVE_TAIL_ENABLED; // <-- add this line
+const effectiveIsLive = isLive && IS_LIVE_TAIL_ENABLED;
 ```
 
-**3. Gate the live polling hook** (find `useLiveUpdate({`):
-
-```typescript
-// before
-useLiveUpdate({
-  isLive,
-  ...
-});
-
-// after
-useLiveUpdate({
-  isLive: effectiveIsLive,
-  ...
-});
-```
-
-**4. Gate the TimePicker props** (find the `<TimePicker` block):
-
-```typescript
-// before
-showLive={analysisMode === 'results'}
-isLiveMode={isLive}
-defaultRelativeTimeMode={
-  isLive && interval !== LIVE_TAIL_DURATION_MS
-}
-
-// after
-showLive={analysisMode === 'results' && IS_LIVE_TAIL_ENABLED}
-isLiveMode={effectiveIsLive}
-defaultRelativeTimeMode={
-  effectiveIsLive && interval !== LIVE_TAIL_DURATION_MS
-}
-```
-
-**5. Gate the refresh-frequency selector** (find `{isLive && (` just below `</TimePicker>`):
-
-```typescript
-// before
-{isLive && (
-
-// after
-{effectiveIsLive && (
-```
-
-**6. Gate the Resume Live Tail button** (find `shouldShowLiveModeHint &&`):
-
-```typescript
-// before
-{shouldShowLiveModeHint &&
-  denoiseResults != true && (
-    <ResumeLiveTailButton ... />
-  )}
-
-// after
-{shouldShowLiveModeHint &&
-  IS_LIVE_TAIL_ENABLED &&
-  denoiseResults != true && (
-    <ResumeLiveTailButton ... />
-  )}
-```
+**3–6.** Replace all remaining `isLive` references in the file with `effectiveIsLive` (polling hook, TimePicker props, refresh-frequency selector, Resume Live Tail button). See git diff for exact lines.
 
 ---
 
@@ -180,11 +125,9 @@ defaultRelativeTimeMode={
 
 ##### `packages/app/src/config.ts`
 
-Add after the `IS_LIVE_TAIL_ENABLED` block:
-
 ```typescript
 const _rawAutocompleteLimit = parseInt(
-  process.env.NEXT_PUBLIC_AUTOCOMPLETE_SUGGESTIONS_LIMIT ?? '',
+  env('NEXT_PUBLIC_AUTOCOMPLETE_SUGGESTIONS_LIMIT') ?? '',
   10,
 );
 export const AUTOCOMPLETE_SUGGESTIONS_LIMIT =
@@ -195,140 +138,7 @@ export const AUTOCOMPLETE_SUGGESTIONS_LIMIT =
 
 ##### `packages/app/src/components/SearchInput/AutocompleteInput.tsx`
 
-This file is substantially reworked. Key changes from upstream:
-
-**1. Import `AUTOCOMPLETE_SUGGESTIONS_LIMIT` from config** and drop the local constant:
-
-```typescript
-// remove
-const suggestionsLimit = 10;
-
-// add at top of file
-import { AUTOCOMPLETE_SUGGESTIONS_LIMIT } from '@/config';
-
-// inside component
-const pageSize = AUTOCOMPLETE_SUGGESTIONS_LIMIT;
-```
-
-**2. Add `page` state and reset it when suggestions change:**
-
-```typescript
-const [page, setPage] = useState(0);
-
-useEffect(() => {
-  setPage(0);
-  setSelectedAutocompleteIndex(-1);
-}, [suggestedProperties]);
-```
-
-**3. Derive pagination values:**
-
-```typescript
-const totalPages = Math.ceil(suggestedProperties.length / pageSize);
-const pageStart = page * pageSize;
-const pageEnd = Math.min((page + 1) * pageSize, suggestedProperties.length) - 1;
-const pagedSuggestions = suggestedProperties.slice(pageStart, pageEnd + 1);
-```
-
-**4. Update `selectedAutocompleteIndex` to be absolute** (into the full array, not the current page slice). Update ArrowDown/Up handlers to cross page boundaries:
-
-```typescript
-// ArrowDown
-const next = Math.min(selectedAutocompleteIndex + 1, suggestedProperties.length - 1);
-if (next > pageEnd && page < totalPages - 1) setPage(p => p + 1);
-setSelectedAutocompleteIndex(next);
-
-// ArrowUp
-const prev = Math.max(selectedAutocompleteIndex - 1, 0);
-if (prev < pageStart && page > 0) setPage(p => p - 1);
-setSelectedAutocompleteIndex(prev);
-```
-
-**5. Render `pagedSuggestions` with absolute index for highlight:**
-
-```tsx
-{pagedSuggestions.map(({ value, label }, i) => {
-  const absoluteIdx = pageStart + i;
-  return (
-    <div
-      className={cx(styles.suggestionItem, selectedAutocompleteIndex === absoluteIdx && styles.selected)}
-      role="button"
-      key={value}
-      onMouseOver={() => setSelectedAutocompleteIndex(absoluteIdx)}
-      onClick={() => onAcceptSuggestion(value)}
-    >
-      <span className={styles.suggestionLabel}>{label}</span>
-    </div>
-  );
-})}
-```
-
-**6. Replace "(Showing Top N)" with prev/next pagination controls** when `totalPages > 1`:
-
-```tsx
-{totalPages > 1 ? (
-  <div className={styles.pagination}>
-    <UnstyledButton
-      className={styles.pageButton}
-      disabled={page === 0}
-      onClick={() => { setPage(p => p - 1); setSelectedAutocompleteIndex(-1); }}
-    >‹</UnstyledButton>
-    <span className={styles.pageIndicator}>{page + 1} / {totalPages}</span>
-    <UnstyledButton
-      className={styles.pageButton}
-      disabled={page === totalPages - 1}
-      onClick={() => { setPage(p => p + 1); setSelectedAutocompleteIndex(-1); }}
-    >›</UnstyledButton>
-  </div>
-) : (
-  suggestedProperties.length > pageSize && (
-    <div className={styles.suggestionsLimit}>(Showing Top {pageSize})</div>
-  )
-)}
-```
-
-##### `packages/app/src/components/SearchInput/AutocompleteInput.module.scss`
-
-Add after `.suggestionsLimit`:
-
-```scss
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--color-text-muted);
-  font-size: var(--mantine-font-size-xs);
-}
-
-.pageButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: var(--mantine-radius-sm);
-  font-size: 1rem;
-  line-height: 1;
-  color: var(--color-text-muted);
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    background-color: var(--color-bg-muted);
-    color: var(--color-text);
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    cursor: default;
-  }
-}
-
-.pageIndicator {
-  min-width: 2.5rem;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-```
+Add pagination state, derive `pagedSuggestions`, add prev/next controls. See git diff for full implementation.
 
 ---
 
@@ -338,24 +148,13 @@ Add after `.suggestionsLimit`:
 **Last verified**: 2026-04-27  
 **Branch**: `abhiroop93/feat/hyperdx-upgrade`
 
-**Intent**: The autocomplete dropdown only triggered once when a field name was fully typed. As the user continues typing `servicename:"search-service"`, suggestions now narrow with every character entered in the value portion. Field detection and clearing both operate on the last quote-aware token so multi-token queries (`level:"info" servicename:"sea`) and quoted values with spaces are handled correctly. A minimum-character threshold prevents the dropdown from appearing on very short inputs.
+**Intent**: The autocomplete dropdown only triggered once when a field name was fully typed. Suggestions now narrow with every character entered in the value portion. Field detection and clearing both operate on the last quote-aware token so multi-token queries and quoted values with spaces are handled correctly. A minimum-character threshold prevents the dropdown from appearing on very short inputs.
 
 #### Environment variables introduced
 
 | Variable | Type | Default | Description |
 |---|---|---|---|
-| `NEXT_PUBLIC_AUTOCOMPLETE_MIN_CHARS` | integer (≥ 0) | `1` | Minimum characters in the value portion before suggestions appear. Set to `0` to show on any input; set to `3` to require at least three characters. |
-
-#### Edge cases
-
-| Input | Last token detected | Fuse term | Result |
-|---|---|---|---|
-| `servicename:"sea` | `servicename:"sea` | `sea` | Values containing "sea" |
-| `level:"info" servicename:"sea` | `servicename:"sea` | `sea` | Same, multi-token input |
-| `servicename:"my serv` | `servicename:"my serv` (quote-balanced) | `my serv` | Values containing "my serv" |
-| `-servicename:"foo` | strip `-` → `servicename:"foo` | `foo` | Negated form still works |
-| `servicename:*` | `servicename:*` | `` (empty after stripping `*`) | Show all fetched options |
-| `servicename:` | `servicename:` | `` (empty) | Show all fetched options |
+| `NEXT_PUBLIC_AUTOCOMPLETE_MIN_CHARS` | integer (≥ 0) | `1` | Minimum characters in the value portion before suggestions appear |
 
 #### Files changed
 
@@ -363,7 +162,7 @@ Add after `.suggestionsLimit`:
 
 ##### `packages/app/src/utils.ts`
 
-Add at the end of the file:
+Add at end of file:
 
 ```typescript
 export function getLastToken(value: string): string {
@@ -383,68 +182,11 @@ export function stripNegation(token: string): string {
 }
 ```
 
----
-
-##### `packages/app/src/hooks/useAutoCompleteOptions.tsx`
-
-**1. Import helpers:**
-
-```typescript
-// before
-import { mergePath, toArray } from '@/utils';
-
-// after
-import { getLastToken, mergePath, stripNegation, toArray } from '@/utils';
-```
-
-**2. Replace both `useEffect`s (field detection + clearing):**
-
-```typescript
-// before — detection
-useEffect(() => {
-  const v = fieldCompleteMap.get(value);
-  if (v) {
-    setSearchField(v);
-  }
-}, [fieldCompleteMap, value]);
-// before — clearing
-useEffect(() => {
-  if (!searchField) return;
-  if (!value.startsWith(formatter.formatFieldValue(searchField))) {
-    setSearchField(null);
-  }
-}, [searchField, setSearchField, value, formatter]);
-
-// after — detection
-useEffect(() => {
-  const lastToken = stripNegation(getLastToken(value));
-  const direct = fieldCompleteMap.get(lastToken);
-  if (direct) { setSearchField(direct); return; }
-  const colon = lastToken.indexOf(':');
-  if (colon > 0) {
-    const matched = fieldCompleteMap.get(lastToken.slice(0, colon));
-    if (matched) setSearchField(matched);
-  }
-}, [fieldCompleteMap, value]);
-// after — clearing
-useEffect(() => {
-  if (!searchField) return;
-  const lastToken = stripNegation(getLastToken(value));
-  if (!lastToken.startsWith(formatter.formatFieldValue(searchField))) {
-    setSearchField(null);
-  }
-}, [searchField, setSearchField, value, formatter]);
-```
-
----
-
 ##### `packages/app/src/config.ts`
-
-Add after the `AUTOCOMPLETE_SUGGESTIONS_LIMIT` block:
 
 ```typescript
 const _rawAutocompleteMinChars = parseInt(
-  process.env.NEXT_PUBLIC_AUTOCOMPLETE_MIN_CHARS ?? '',
+  env('NEXT_PUBLIC_AUTOCOMPLETE_MIN_CHARS') ?? '',
   10,
 );
 export const AUTOCOMPLETE_MIN_CHARS =
@@ -453,61 +195,9 @@ export const AUTOCOMPLETE_MIN_CHARS =
     : 1;
 ```
 
----
+##### `packages/app/src/hooks/useAutoCompleteOptions.tsx` and `packages/app/src/components/SearchInput/AutocompleteInput.tsx`
 
-##### `packages/app/src/components/SearchInput/AutocompleteInput.tsx`
-
-**1. Import `getLastToken` and `AUTOCOMPLETE_MIN_CHARS` from config/utils:**
-
-```typescript
-// before
-import { AUTOCOMPLETE_SUGGESTIONS_LIMIT } from '@/config';
-import { useQueryHistory } from '@/utils';
-
-// after
-import { AUTOCOMPLETE_MIN_CHARS, AUTOCOMPLETE_SUGGESTIONS_LIMIT } from '@/config';
-import { getLastToken, useQueryHistory } from '@/utils';
-```
-
-**2. Add `extractFuseSearchTerm` helper (after all imports, before the component):**
-
-```typescript
-function extractFuseSearchTerm(token: string): string {
-  const t = token.startsWith('-') ? token.slice(1) : token;
-  const quoted = t.match(/^[^\s:]+:"([^"]*)"?$/);
-  if (quoted) return quoted[1].replace(/\*/g, '');
-  const unquoted = t.match(/^[^\s:]+:(.+)$/);
-  if (unquoted) return unquoted[1].replace(/\*/g, '');
-  return t.replace(/\*/g, '');
-}
-```
-
-**3. Update `suggestedProperties` useMemo:**
-
-```typescript
-// before
-const suggestedProperties = useMemo(() => {
-  const tokens = debouncedValue.split(' ');
-  const lastToken = tokens[tokens.length - 1];
-  if (lastToken.length === 0 && showSuggestionsOnEmpty) {
-    return autocompleteOptions ?? [];
-  }
-  return fuse.search(lastToken).map(result => result.item);
-}, [debouncedValue, fuse, autocompleteOptions, showSuggestionsOnEmpty]);
-
-// after
-const suggestedProperties = useMemo(() => {
-  const lastToken = getLastToken(debouncedValue);
-  if (!lastToken.length && showSuggestionsOnEmpty) return autocompleteOptions ?? [];
-  if (!lastToken.length) return [];
-  const fuseTerm = extractFuseSearchTerm(lastToken);
-  // bare `field:` or pure wildcard → show all fetched options
-  if (!fuseTerm.length) return autocompleteOptions ?? [];
-  // enforce minimum character threshold
-  if (fuseTerm.length < AUTOCOMPLETE_MIN_CHARS) return [];
-  return fuse.search(fuseTerm).map(result => result.item);
-}, [debouncedValue, fuse, autocompleteOptions, showSuggestionsOnEmpty]);
-```
+Rework field-detection and `suggestedProperties` useMemo to use quote-aware tokenizer. See git diff for full implementation.
 
 ---
 
@@ -517,99 +207,34 @@ const suggestedProperties = useMemo(() => {
 **Last verified**: 2026-04-27  
 **Branch**: `abhiroop93/feat/hyperdx-upgrade`
 
-**Intent**: The `/team` page exposes sensitive ClickHouse connection credentials and query-tuning parameters. This change hides the **Data** tab (Connections + Sources) and **Query Settings** tab from users whose email is not in the privileged list, and removes all edit/add controls in those sections for non-privileged users. Members, Integrations, and Access tabs remain visible to everyone.
-
-When `NEXT_PUBLIC_PRIVILEGED_EMAILS` is unset or empty, all users are privileged (preserves existing behaviour).
+**Intent**: The `/team` page exposes sensitive ClickHouse connection credentials and query-tuning parameters. This change hides the **Data** tab (Connections + Sources) and **Query Settings** tab from users whose email is not in the privileged list. When `NEXT_PUBLIC_PRIVILEGED_EMAILS` is unset or empty, all users are privileged (preserves existing behaviour).
 
 #### Environment variables introduced
 
 | Variable | Type | Default | Description |
 |---|---|---|---|
-| `NEXT_PUBLIC_PRIVILEGED_EMAILS` | comma-separated emails | `""` (all users privileged) | Only users whose email appears in this list can see the Data and Query Settings tabs and edit connections/query params. Case-insensitive. |
+| `NEXT_PUBLIC_PRIVILEGED_EMAILS` | comma-separated emails | `""` (all users privileged) | Only these users see Data and Query Settings tabs. Case-insensitive. |
 
 #### Files changed
 
----
-
 ##### `packages/app/src/config.ts`
-
-Add after the `AUTOCOMPLETE_MIN_CHARS` block:
 
 ```typescript
 export const PRIVILEGED_EMAILS: string[] = (
-  process.env.NEXT_PUBLIC_PRIVILEGED_EMAILS ?? ''
+  env('NEXT_PUBLIC_PRIVILEGED_EMAILS') ?? ''
 )
   .split(',')
   .map(e => e.trim().toLowerCase())
   .filter(Boolean);
 ```
 
----
-
 ##### `packages/app/src/hooks/useIsPrivilegedUser.ts` (new file)
 
-```typescript
-import api from '@/api';
-import { PRIVILEGED_EMAILS } from '@/config';
+Returns `boolean | undefined` — `undefined` while the `/me` API call is loading to prevent a flash of non-privileged UI.
 
-export function useIsPrivilegedUser(): boolean {
-  const { data: me } = api.useMe();
-  if (PRIVILEGED_EMAILS.length === 0) return true;
-  if (!me?.email) return false;
-  return PRIVILEGED_EMAILS.includes(me.email.toLowerCase());
-}
-```
+##### `packages/app/src/TeamPage.tsx`, `TeamQueryConfigSection.tsx`, `ConnectionsSection.tsx`
 
----
-
-##### `packages/app/src/TeamPage.tsx`
-
-**1. Import hook:**
-
-```typescript
-import { useIsPrivilegedUser } from './hooks/useIsPrivilegedUser';
-```
-
-**2. Replace `hasAdminAccess = true` with hook:**
-
-```typescript
-// before
-const hasAdminAccess = true;
-
-// after
-const isPrivileged = useIsPrivilegedUser();
-```
-
-**3. Gate Data and Query Settings tabs** — wrap each in `...(isPrivileged ? [...] : [])`. Replace `hasAdminAccess` with `isPrivileged` on the team name edit button.
-
----
-
-##### `packages/app/src/components/TeamSettings/TeamQueryConfigSection.tsx`
-
-```typescript
-// add import
-import { useIsPrivilegedUser } from '@/hooks/useIsPrivilegedUser';
-
-// before
-const hasAdminAccess = true;
-
-// after
-const hasAdminAccess = useIsPrivilegedUser();
-```
-
----
-
-##### `packages/app/src/components/TeamSettings/ConnectionsSection.tsx`
-
-```typescript
-// add import
-import { useIsPrivilegedUser } from '@/hooks/useIsPrivilegedUser';
-
-// inside component
-const isPrivileged = useIsPrivilegedUser();
-```
-
-Gate the Edit/Cancel toggle and "Add Connection" button with `isPrivileged &&`.
+Gate Data tab, Query Settings tab, and edit/add controls with `useIsPrivilegedUser()`. See git diff.
 
 ---
 
@@ -619,71 +244,18 @@ Gate the Edit/Cancel toggle and "Add Connection" button with `isPrivileged &&`.
 **Last verified**: 2026-04-27  
 **Branch**: `abhiroop93/feat/hyperdx-upgrade`
 
-**Intent**: The upstream `instrumentation.ts` used `@hyperdx/node-opentelemetry`, which hard-codes `in-otel.hyperdx.io` as the exporter destination and ignores `OTEL_EXPORTER_OTLP_ENDPOINT`. Replaced with the standard `@opentelemetry/sdk-node` so the app's own traces can be sent to any OTEL-compliant collector (Grafana Alloy, OpenTelemetry Collector, Jaeger, etc.) via standard env vars. `HDX_EXPORTER_ENABLED` is now a real kill switch (it was defined but never checked before).
+**Intent**: Replace `@hyperdx/node-opentelemetry` (hard-codes HyperDX SaaS endpoint) with the standard `@opentelemetry/sdk-node` so the app's own traces go to any OTEL-compliant collector.
 
 #### Environment variables
 
-| Variable | Type | Default | Description |
-|---|---|---|---|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | URL | — | Base OTLP HTTP endpoint (e.g. `http://otel-collector:4318`). Required — telemetry is disabled if neither this nor `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is set. |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | URL | — | Traces-specific override; takes precedence over the base endpoint for traces. |
-| `NEXT_PUBLIC_OTEL_SERVICE_NAME` | string | `hdx-oss-dev-app` | Service name attached to all spans. |
-| `HDX_EXPORTER_ENABLED` | `'true'` \| `'false'` | `'true'` | Set to `'false'` to disable all self-telemetry export. |
-
-#### New direct dependencies in `packages/app/package.json`
-
-```json
-"@opentelemetry/auto-instrumentations-node": "^0.56.0",
-"@opentelemetry/exporter-trace-otlp-http": "^0.57.2",
-"@opentelemetry/sdk-node": "^0.57.2",
-```
-
-(`@hyperdx/node-opentelemetry` is kept because the API and browser packages still reference it.)
+| Variable | Default | Description |
+|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | Base OTLP HTTP endpoint. Telemetry disabled if unset. |
+| `HDX_EXPORTER_ENABLED` | `'true'` | Set to `'false'` to disable all self-telemetry. |
 
 #### File changed
 
-##### `packages/app/src/instrumentation.ts`
-
-```typescript
-// before
-export async function register() {
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { init } = await import('@hyperdx/node-opentelemetry');
-    init({
-      apiKey: process.env.HYPERDX_API_KEY,
-      additionalInstrumentations: [],
-    });
-  }
-}
-
-// after
-export async function register() {
-  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
-  if (process.env.HDX_EXPORTER_ENABLED === 'false') return;
-
-  const hasEndpoint =
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT ||
-    process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT;
-  if (!hasEndpoint) return;
-
-  const { NodeSDK } = await import('@opentelemetry/sdk-node');
-  const { getNodeAutoInstrumentations } = await import(
-    '@opentelemetry/auto-instrumentations-node'
-  );
-  const { OTLPTraceExporter } = await import(
-    '@opentelemetry/exporter-trace-otlp-http'
-  );
-
-  const sdk = new NodeSDK({
-    serviceName:
-      process.env.NEXT_PUBLIC_OTEL_SERVICE_NAME ?? 'hdx-oss-dev-app',
-    traceExporter: new OTLPTraceExporter(),
-    instrumentations: [getNodeAutoInstrumentations()],
-  });
-
-  sdk.start();
-}
-```
+`packages/app/src/instrumentation.ts` — see git diff.
 
 ---
 
@@ -693,31 +265,104 @@ export async function register() {
 **Last verified**: 2026-04-27  
 **Branch**: `abhiroop93/feat/hyperdx-upgrade`
 
-**Intent**: Allow users to sign in with Google OAuth2. Since HyperDX is a single-team deployment, any Google account whose domain matches `GOOGLE_ALLOWED_DOMAINS` is automatically assigned to the existing team on first login. No invite token required. The button is hidden unless `NEXT_PUBLIC_GOOGLE_SSO_ENABLED=true` so deployments without credentials configured are unaffected.
+**Intent**: Allow users to sign in with Google OAuth2. Any Google account whose domain matches `GOOGLE_ALLOWED_DOMAINS` is automatically assigned to the existing team on first login. Password login continues to work alongside SSO.
 
 #### Environment variables
 
 | Variable | Where | Description |
 |---|---|---|
-| `GOOGLE_CLIENT_ID` | API | Google OAuth2 client ID (from Google Cloud Console) |
+| `GOOGLE_CLIENT_ID` | API | Google OAuth2 client ID |
 | `GOOGLE_CLIENT_SECRET` | API | Google OAuth2 client secret |
-| `GOOGLE_CALLBACK_URL` | API | Full callback URL, e.g. `https://your-domain/api/auth/google/callback` |
-| `GOOGLE_ALLOWED_DOMAINS` | API | Comma-separated list of permitted email domains, e.g. `sharechat.co,moj.com`. Empty = any domain allowed. |
-| `NEXT_PUBLIC_GOOGLE_SSO_ENABLED` | App | Set to `'true'` to show the "Sign in with Google" button on the login page. |
-
-#### Google Cloud Console setup
-
-1. Create an OAuth 2.0 client (Web Application type)
-2. Add `GOOGLE_CALLBACK_URL` to **Authorized redirect URIs**
-3. Copy Client ID + Secret into the env vars above
+| `GOOGLE_CALLBACK_URL` | API | Full callback URL — must be added to **Authorized redirect URIs** in Google Cloud Console, e.g. `https://your-domain/api/auth/google/callback` |
+| `GOOGLE_ALLOWED_DOMAINS` | API | Comma-separated permitted email domains, e.g. `sharechat.co,moj.com`. Empty = any domain allowed. |
+| `NEXT_PUBLIC_GOOGLE_SSO_ENABLED` | App | Set to `'true'` to show the "Sign in with Google" button. |
 
 #### Files changed
 
 - `packages/api/package.json` — add `passport-google-oauth20` + `@types/passport-google-oauth20`
-- `packages/api/src/config.ts` — add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `GOOGLE_ALLOWED_DOMAINS`, `GOOGLE_SSO_ENABLED`
-- `packages/api/src/utils/passport.ts` — register `GoogleStrategy`; on callback: domain check → find-or-create user → assign to existing team
-- `packages/api/src/routers/api/root.ts` — add `GET /login/google` and `GET /auth/google/callback` routes
-- `packages/app/src/config.ts` — add `GOOGLE_SSO_ENABLED` (reads `NEXT_PUBLIC_GOOGLE_SSO_ENABLED`)
-- `packages/app/src/AuthPage.tsx` — show "Sign in with Google" button when `GOOGLE_SSO_ENABLED`; handle `domainNotAllowed` error
+- `packages/api/src/config.ts` — add Google SSO config vars
+- `packages/api/src/utils/passport.ts` — register `GoogleStrategy`
+- `packages/api/src/routers/api/root.ts` — add `/login/google` and `/auth/google/callback` routes
+- `packages/app/src/config.ts` — add `GOOGLE_SSO_ENABLED`
+- `packages/app/src/AuthPage.tsx` — show SSO button; handle `domainNotAllowed` error
+
+---
+
+### 7. Runtime env injection — next-runtime-env standalone fix
+
+**Added**: 2026-04-28  
+**Last verified**: 2026-04-28  
+**Branch**: `abhiroop93/feat/hyperdx-upgrade`
+
+**Intent**: In Next.js standalone mode, `next.config.mjs` (and therefore `configureRuntimeEnv()`) is **not** re-executed when the container starts — only at `next build` time. This means `window.__ENV` is never populated at runtime, so every `env()` call on the client returns `undefined` regardless of what `--env-file` / `-e` values are passed to `docker run`.
+
+The fix writes `public/__ENV.js` from the container's live `process.env` at startup, before the servers are started.
+
+#### File changed
+
+##### `docker/hyperdx/entry.prod.sh`
+
+Add before the `concurrently` call:
+
+```bash
+# Generate __ENV.js for next-runtime-env so NEXT_PUBLIC_* vars set at container
+# startup are available to the browser (next.config.mjs only runs at build time
+# in standalone mode, so configureRuntimeEnv() never fires at runtime).
+node -e "
+const fs = require('fs');
+const vars = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => k.startsWith('NEXT_PUBLIC_'))
+);
+const dest = './packages/app/packages/app/public/__ENV.js';
+fs.writeFileSync(dest, 'self.__ENV=' + JSON.stringify(vars) + ';');
+console.log('[startup] wrote ' + dest + ' with ' + Object.keys(vars).length + ' NEXT_PUBLIC_* vars');
+"
+```
+
+---
+
+### 8. Live Tail — configurable refresh interval
+
+**Added**: 2026-04-28  
+**Last verified**: 2026-04-28  
+**Branch**: `abhiroop93/feat/hyperdx-upgrade`
+
+**Intent**: The live tail refresh frequency dropdown was hardcoded to 1s/2s/4s/10s/30s. Changed to 15m/30m/1h to match the deployment's query latency characteristics, and made the default pre-selected interval configurable via env var.
+
+#### Environment variables introduced
+
+| Variable | Type | Default | Description |
+|---|---|---|---|
+| `NEXT_PUBLIC_LIVE_TAIL_REFRESH_INTERVAL_MS` | integer (ms) | `900000` (15 min) | Default selected polling interval. Must be one of `900000`, `1800000`, `3600000`. |
+
+#### Files changed
+
+##### `packages/app/src/config.ts`
+
+```typescript
+const _rawLiveTailRefreshInterval = parseInt(
+  env('NEXT_PUBLIC_LIVE_TAIL_REFRESH_INTERVAL_MS') ?? '',
+  10,
+);
+export const LIVE_TAIL_REFRESH_INTERVAL_MS =
+  Number.isFinite(_rawLiveTailRefreshInterval) &&
+  _rawLiveTailRefreshInterval > 0
+    ? _rawLiveTailRefreshInterval
+    : 900000;
+```
+
+##### `packages/app/src/DBSearchPage.tsx`
+
+```typescript
+// replace options array
+const LIVE_TAIL_REFRESH_FREQUENCY_OPTIONS = [
+  { value: '900000', label: '15m' },
+  { value: '1800000', label: '30m' },
+  { value: '3600000', label: '1h' },
+];
+
+// replace hardcoded default
+const DEFAULT_REFRESH_FREQUENCY = LIVE_TAIL_REFRESH_INTERVAL_MS;
+```
 
 ---
