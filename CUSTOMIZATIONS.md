@@ -105,19 +105,19 @@ const effectiveIsLive = isLive && IS_LIVE_TAIL_ENABLED;
 
 ---
 
-### 2. Search bar autocomplete — configurable page size with pagination
+### 2. Search bar autocomplete — configurable top-N display
 
 **Added**: 2026-04-27  
-**Last verified**: 2026-04-27  
+**Last verified**: 2026-04-28  
 **Branch**: `abhiroop93/feat/hyperdx-upgrade`
 
-**Intent**: The autocomplete dropdown was hardcoded to show a maximum of 10 suggestions with no way to see the rest. This change makes the per-page limit configurable via env var and adds prev/next pagination controls when the result set exceeds one page. Keyboard navigation (ArrowUp/Down) crosses page boundaries automatically.
+**Intent**: The autocomplete dropdown was hardcoded to show a maximum of 10 suggestions with no way to configure it. This change makes the visible limit configurable via env var. Pagination was considered but removed — the per-keystroke ClickHouse prefix search (customization #3) makes pagination unnecessary because the result set is already narrowed server-side. A "Showing Top N" label appears when results are trimmed.
 
 #### Environment variables introduced
 
 | Variable | Type | Default | Description |
 |---|---|---|---|
-| `NEXT_PUBLIC_AUTOCOMPLETE_SUGGESTIONS_LIMIT` | integer | `10` | Max suggestions shown per page in the autocomplete dropdown |
+| `NEXT_PUBLIC_AUTOCOMPLETE_SUGGESTIONS_LIMIT` | integer | `10` | Max suggestions shown in the autocomplete dropdown |
 
 #### Files changed
 
@@ -138,23 +138,37 @@ export const AUTOCOMPLETE_SUGGESTIONS_LIMIT =
 
 ##### `packages/app/src/components/SearchInput/AutocompleteInput.tsx`
 
-Add pagination state, derive `pagedSuggestions`, add prev/next controls. See git diff for full implementation.
+- Removed `Fuse.js` — replaced with `opt.value.toLowerCase().includes(searchTerm.toLowerCase())` for client-side filtering of the ClickHouse result set
+- Removed all pagination state (`page`, `totalPages`, `pagedSuggestions`, prev/next buttons)
+- Renders `suggestedProperties.slice(0, pageSize)` directly with a "Showing Top N" hint when trimmed
+- Simplified ArrowUp/Down to navigate within `0..visibleSuggestions.length-1`
 
 ---
 
-### 3. Search bar autocomplete — per-keystroke value filtering
+### 3. Search bar autocomplete — per-keystroke ClickHouse prefix search
 
 **Added**: 2026-04-27  
-**Last verified**: 2026-04-27  
+**Last verified**: 2026-04-28  
 **Branch**: `abhiroop93/feat/hyperdx-upgrade`
 
-**Intent**: The autocomplete dropdown only triggered once when a field name was fully typed. Suggestions now narrow with every character entered in the value portion. Field detection and clearing both operate on the last quote-aware token so multi-token queries and quoted values with spaces are handled correctly. A minimum-character threshold prevents the dropdown from appearing on very short inputs.
+**Intent**: The original autocomplete fetched a fixed top-N values for a field once (e.g. all `ServiceName` values) and filtered client-side. This had two problems:
+1. If the target value wasn't among the top N fetched, it could never appear regardless of what the user typed.
+2. Filtering was done by Fuse.js with `threshold: 0`, which scored substring matches slightly above 0 due to the pattern/text length ratio, causing valid matches like `user-entity` inside `user-entity-service` to be dropped.
+
+The fix uses two layers:
+- **ClickHouse-side**: Each debounced keystroke adds `WHERE field ILIKE 'prefix%'` to the `chartConfig` so React Query fires a new targeted query. This bypasses the top-N limit entirely for specific searches.
+- **Client-side**: After the ClickHouse result returns, `String.prototype.includes()` filters the result set for the dropdown display.
+
+Field detection operates on the last quote-aware token so multi-token queries (`level:"info" ServiceName:"user`) and negation (`-ServiceName:"foo`) are handled correctly.
+
+The hook also returns `keyValCompleteOptions` directly (not merged with `fieldCompleteOptions`) so field names never bleed into the value-completion dropdown.
 
 #### Environment variables introduced
 
 | Variable | Type | Default | Description |
 |---|---|---|---|
-| `NEXT_PUBLIC_AUTOCOMPLETE_MIN_CHARS` | integer (≥ 0) | `1` | Minimum characters in the value portion before suggestions appear |
+| `NEXT_PUBLIC_AUTOCOMPLETE_MIN_CHARS` | integer (≥ 0) | `1` | Minimum characters typed before suggestions appear / ClickHouse prefix query fires |
+| `NEXT_PUBLIC_AUTOCOMPLETE_DATE_RANGE_MS` | integer (ms) | `3600000` (1 h) | Time window for autocomplete ClickHouse queries. Smaller = faster scans. |
 
 #### Files changed
 
@@ -193,11 +207,56 @@ export const AUTOCOMPLETE_MIN_CHARS =
   Number.isFinite(_rawAutocompleteMinChars) && _rawAutocompleteMinChars >= 0
     ? _rawAutocompleteMinChars
     : 1;
+
+const _rawAutocompleteRange = parseInt(
+  env('NEXT_PUBLIC_AUTOCOMPLETE_DATE_RANGE_MS') ?? '',
+  10,
+);
+export const AUTOCOMPLETE_DATE_RANGE_MS =
+  Number.isFinite(_rawAutocompleteRange) && _rawAutocompleteRange > 0
+    ? _rawAutocompleteRange
+    : 3600000; // 1 hour default
 ```
 
-##### `packages/app/src/hooks/useAutoCompleteOptions.tsx` and `packages/app/src/components/SearchInput/AutocompleteInput.tsx`
+##### `packages/app/src/hooks/useAutoCompleteOptions.tsx`
 
-Rework field-detection and `suggestedProperties` useMemo to use quote-aware tokenizer. See git diff for full implementation.
+Key changes:
+
+1. **Field detection** — operates on the last quote-aware token via `getLastToken` + `stripNegation`. Supports `field:value` in-progress form, negation, and multi-token queries.
+
+2. **Field clearing** — clears `searchField` when the last token no longer starts with the detected field name, so typing a second field correctly re-fetches for the new field.
+
+3. **Debounced ClickHouse prefix filter** — extracts the value prefix from the typed input, debounces it 300ms, and adds it to `chartConfigs.where`:
+```typescript
+where: fieldPath ? `${fieldPath} ILIKE '${safePrefix}%'` : '',
+```
+React Query detects the changed `chartConfig` object and fires a new query. Single-quotes in the prefix are escaped to prevent SQL injection.
+
+4. **Configurable date range** — `dateRange` uses `AUTOCOMPLETE_DATE_RANGE_MS` instead of the hardcoded 12-hour window.
+
+5. **Return value** — returns `keyValCompleteOptions` directly instead of `deduplicate2dArray([fieldCompleteOptions, keyValCompleteOptions])`. When `searchField` is active and `keyVals` are loaded, only formatted value pairs are returned (not field names). Falls back to `fieldCompleteOptions` when no field is detected or values are still loading.
+
+##### `packages/app/src/components/SearchInput/AutocompleteInput.tsx`
+
+Added `extractFuseSearchTerm` helper to extract the value portion from the in-progress token for client-side filtering:
+```typescript
+function extractFuseSearchTerm(token: string): string {
+  const t = token.startsWith('-') ? token.slice(1) : token;
+  const quoted = t.match(/^[^\s:]+:"([^"]*)"?$/);
+  if (quoted) return quoted[1].replace(/\*/g, '');
+  const unquoted = t.match(/^[^\s:]+:(.+)$/);
+  if (unquoted) return unquoted[1].replace(/\*/g, '');
+  return t.replace(/\*/g, '');
+}
+```
+
+`suggestedProperties` filters using `includes()` instead of Fuse.js:
+```typescript
+const lower = searchTerm.toLowerCase();
+return (autocompleteOptions ?? []).filter(opt =>
+  opt.value.toLowerCase().includes(lower),
+);
+```
 
 ---
 
@@ -284,7 +343,7 @@ Gate Data tab, Query Settings tab, and edit/add controls with `useIsPrivilegedUs
 - `packages/api/src/utils/passport.ts` — register `GoogleStrategy`
 - `packages/api/src/routers/api/root.ts` — add `/login/google` and `/auth/google/callback` routes
 - `packages/app/src/config.ts` — add `GOOGLE_SSO_ENABLED`
-- `packages/app/src/AuthPage.tsx` — show SSO button; handle `domainNotAllowed` error
+- `packages/app/src/AuthPage.tsx` — show SSO button above the email/password form with a divider below it; handle `domainNotAllowed` error
 
 ---
 
