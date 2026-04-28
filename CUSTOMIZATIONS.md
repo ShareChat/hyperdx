@@ -226,11 +226,12 @@ Key changes:
 
 2. **Field clearing** — clears `searchField` when the last token no longer starts with the detected field name, so typing a second field correctly re-fetches for the new field.
 
-3. **Debounced ClickHouse prefix filter** — extracts the value prefix from the typed input, debounces it 300ms, and adds it to `chartConfigs.where`:
-```typescript
-where: fieldPath ? `${fieldPath} ILIKE '${safePrefix}%'` : '',
-```
-React Query detects the changed `chartConfig` object and fires a new query. Single-quotes in the prefix are escaped to prevent SQL injection.
+3. **Debounced ClickHouse prefix filter** — extracts the value prefix from the typed input, debounces it 300ms, and adds it to `chartConfigs.where`. Uses `searchKeys[0]` (already processed by `mergePath`) for the column expression so all field types work correctly:
+   - Top-level column: `ServiceName ILIKE 'user%'`
+   - Map field: `ResourceAttributes['k8s.deployment.name'] ILIKE 'my-dep%'`
+   - JSON field: `ResourceAttributes.\`k8s.deployment.name\` ILIKE 'my-dep%'`
+
+   Single-quotes in the prefix are escaped to prevent SQL injection. React Query detects the changed `chartConfig` object and fires a new query.
 
 4. **Configurable date range** — `dateRange` uses `AUTOCOMPLETE_DATE_RANGE_MS` instead of the hardcoded 12-hour window.
 

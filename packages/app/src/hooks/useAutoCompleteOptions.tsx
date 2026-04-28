@@ -130,9 +130,14 @@ export function useAutoCompleteOptions(
 
   // hooks to get key values
   const chartConfigs: BuilderChartConfigWithDateRange[] = useMemo(() => {
+    // Use searchKeys[0] (already processed by mergePath) so the ILIKE condition
+    // uses the correct ClickHouse column expression for all field types:
+    //   top-level: ServiceName
+    //   map field:  ResourceAttributes['k8s.deployment.name']
+    //   json field: ResourceAttributes.`k8s.deployment.name`
     const fieldPath =
-      searchField && debouncedValuePrefix.length >= AUTOCOMPLETE_MIN_CHARS
-        ? formatter.formatFieldValue(searchField)
+      searchKeys.length > 0 && debouncedValuePrefix.length >= AUTOCOMPLETE_MIN_CHARS
+        ? searchKeys[0]
         : null;
     // Escape single quotes to prevent SQL injection from the typed prefix
     const safePrefix = debouncedValuePrefix.replace(/'/g, "''");
@@ -146,7 +151,7 @@ export function useAutoCompleteOptions(
       where: fieldPath ? `${fieldPath} ILIKE '${safePrefix}%'` : '',
       dateRange: [new Date(NOW - AUTOCOMPLETE_DATE_RANGE_MS), new Date(NOW)],
     }));
-  }, [tableConnection, searchField, debouncedValuePrefix, formatter]);
+  }, [tableConnection, searchKeys, debouncedValuePrefix]);
 
   const { data: keyVals } = useMultipleGetKeyValues({
     chartConfigs,
