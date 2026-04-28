@@ -141,7 +141,7 @@ export function useAutoCompleteOptions(
         : null;
     // Escape single quotes to prevent SQL injection from the typed prefix
     const safePrefix = debouncedValuePrefix.replace(/'/g, "''");
-    const now = Date.now();
+    const now = Math.floor(Date.now() / 60000) * 60000; // round to nearest minute for cache stability
     return toArray(tableConnection).map(({ databaseName, tableName, connectionId, timestampValueExpression }) => ({
       connection: connectionId,
       from: { databaseName, tableName },
