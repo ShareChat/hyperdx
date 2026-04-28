@@ -151,6 +151,7 @@ import {
 } from './utils/queryParsers';
 import api from './api';
 import { LOCAL_STORE_CONNECTIONS_KEY } from './connection';
+import useIsPrivilegedUser from './hooks/useIsPrivilegedUser';
 import { DBSearchPageAlertModal } from './DBSearchPageAlertModal';
 import { EditablePageName } from './EditablePageName';
 import { SearchConfig } from './types';
@@ -1587,6 +1588,8 @@ export function DBSearchPage() {
         };
   }, [chartConfig, searchedTimeRange, aliasWith]);
 
+  const isPrivilegedUser = useIsPrivilegedUser();
+
   const openNewSourceModal = useCallback(() => {
     setNewSourceModalOpened(true);
   }, []);
@@ -1840,8 +1843,8 @@ export function DBSearchPage() {
             size="xs"
             control={control}
             name="source"
-            onCreate={openNewSourceModal}
-            onEdit={onEditSources}
+            onCreate={isPrivilegedUser ? openNewSourceModal : undefined}
+            onEdit={isPrivilegedUser ? onEditSources : undefined}
             allowedSourceKinds={ALLOWED_SOURCE_KINDS}
             data-testid="source-selector"
             sourceSchemaPreview={sourceSchemaPreview}

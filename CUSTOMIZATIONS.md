@@ -233,9 +233,36 @@ Key changes:
 
    Single-quotes in the prefix are escaped to prevent SQL injection. React Query detects the changed `chartConfig` object and fires a new query.
 
-4. **Configurable date range** — `dateRange` uses `AUTOCOMPLETE_DATE_RANGE_MS` instead of the hardcoded 12-hour window.
+4. **Timestamp-scoped date range** — `timestampValueExpression` is read from `tableConnection` (populated by `tcFromSource`) so the date range filter is actually applied to the CTE. Previously `timestampValueExpression` was hardcoded to `''`, causing `renderChartConfig` to skip the date filter and scan the full table. `Date.now()` is computed inline (not the frozen module-load-time `NOW` constant) so the window is always relative to the current keystroke.
 
 5. **Return value** — returns `keyValCompleteOptions` directly instead of `deduplicate2dArray([fieldCompleteOptions, keyValCompleteOptions])`. When `searchField` is active and `keyVals` are loaded, only formatted value pairs are returned (not field names). Falls back to `fieldCompleteOptions` when no field is detected or values are still loading.
+
+##### `packages/common-utils/src/core/metadata.ts`
+
+Add optional `timestampValueExpression` field to `TableConnection`:
+
+```typescript
+export type TableConnection = {
+  databaseName: string;
+  tableName: string;
+  connectionId: string;
+  metricName?: string;
+  timestampValueExpression?: string; // ← added
+};
+```
+
+Populate it in `tcFromSource`:
+
+```typescript
+export function tcFromSource(source?: TSource): TableConnection {
+  return {
+    databaseName: source?.from?.databaseName ?? '',
+    tableName: source?.from?.tableName ?? '',
+    connectionId: source?.connection ?? '',
+    timestampValueExpression: source?.timestampValueExpression, // ← added
+  };
+}
+```
 
 ##### `packages/app/src/components/SearchInput/AutocompleteInput.tsx`
 
@@ -295,6 +322,30 @@ Returns `boolean | undefined` — `undefined` while the `/me` API call is loadin
 ##### `packages/app/src/TeamPage.tsx`, `TeamQueryConfigSection.tsx`, `ConnectionsSection.tsx`
 
 Gate Data tab, Query Settings tab, and edit/add controls with `useIsPrivilegedUser()`. See git diff.
+
+##### `packages/app/src/DBSearchPage.tsx`
+
+Gate the **Create New Source** and **Edit Sources** actions in the source dropdown
+on the `/search` page behind `useIsPrivilegedUser()`. Non-privileged users see the
+source list but not the action items.
+
+```typescript
+import useIsPrivilegedUser from './hooks/useIsPrivilegedUser';
+
+// in component body:
+const isPrivilegedUser = useIsPrivilegedUser();
+
+// at the SourceSelectControlled render site:
+<SourceSelectControlled
+  onCreate={isPrivilegedUser ? openNewSourceModal : undefined}
+  onEdit={isPrivilegedUser ? onEditSources : undefined}
+  ...
+/>
+```
+
+`SourceSelectControlled` already omits the Actions group when both callbacks are
+`undefined` (line: `const hasActions = !!onCreate || !!onEdit`), so no changes
+are needed to `SourceSelect.tsx`.
 
 ---
 
