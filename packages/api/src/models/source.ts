@@ -11,6 +11,8 @@ import {
 import mongoose, { Schema } from 'mongoose';
 import z from 'zod';
 
+import { sourceCustomFields } from './sourceCustomizations';
+
 import { objectIdSchema } from '@/utils/zod';
 
 // ISource is a discriminated union (inherits from TSource) with team added
@@ -97,9 +99,7 @@ const sourceBaseSchema = new Schema<MongooseSourceBase>(
         message: '{PATH} exceeds the limit of 10',
       },
     },
-    defaultFilters: {
-      type: mongoose.Schema.Types.Array,
-    },
+    ...sourceCustomFields,
   },
   {
     discriminatorKey: 'kind',

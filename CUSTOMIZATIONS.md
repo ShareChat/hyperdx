@@ -494,4 +494,29 @@ Four changes:
    in the `renderFacets` callback. Add `displayLabelMap` to the
    `useCallback` dependency array.
 
+##### `packages/api/src/models/sourceCustomizations.ts` (new fork-only file)
+
+All fork-specific Mongoose schema fields live here. `source.ts` spreads this
+in via `...sourceCustomFields` — it is the **only touch to `source.ts`** and
+is trivially easy to re-apply after an upstream merge.
+
+```typescript
+export const sourceCustomFields: mongoose.SchemaDefinition = {
+  defaultFilters: { type: mongoose.Schema.Types.Array },
+};
+```
+
+##### `packages/api/src/models/source.ts`
+
+Two-line touch (one import, one spread) — keep both when resolving upstream
+merge conflicts:
+
+```typescript
+// add import at top:
+import { sourceCustomFields } from './sourceCustomizations';
+
+// spread into sourceBaseSchema fields object:
+...sourceCustomFields,
+```
+
 ---
