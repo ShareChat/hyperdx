@@ -36,77 +36,86 @@ export type DefaultFilterEntry = {
   displayLabel?: string;
 };
 
+// ─── Shared filter sets ───────────────────────────────────────────────────────
+// Define once here, reference by multiple source names below to avoid
+// duplication. Add a new const when a filter set diverges between regions.
+
+const LOGS_FILTERS: DefaultFilterEntry[] = [
+  { expression: 'ResourceAttributes.cloud', displayLabel: 'Cloud' },
+  { expression: 'LogAttributes.log.iostream', displayLabel: 'IO Stream' },
+  { expression: 'SeverityText', displayLabel: 'Severity' },
+  { expression: 'ServiceName', displayLabel: 'Service' },
+  { expression: 'ResourceAttributes.k8s.cluster.name', displayLabel: 'Cluster' },
+  { expression: 'ResourceAttributes.k8s.namespace.name', displayLabel: 'Namespace' },
+  { expression: 'ResourceAttributes.k8s.container.name', displayLabel: 'Container' },
+  { expression: 'ResourceAttributes.label.team', displayLabel: 'Team' },
+  { expression: 'ResourceAttributes.label.pod', displayLabel: 'Pod' },
+];
+
+const TRACES_FILTERS: DefaultFilterEntry[] = [
+  { expression: 'ResourceAttributes.cloud', displayLabel: 'Cloud' },
+  { expression: 'ServiceName', displayLabel: 'Service' },
+  { expression: 'StatusCode', displayLabel: 'Status Code' },
+  { expression: 'SpanKind', displayLabel: 'Span Kind' },
+  { expression: 'ResourceAttributes.k8s.cluster.name', displayLabel: 'Cluster' },
+  { expression: 'ResourceAttributes.k8s.namespace.name', displayLabel: 'Namespace' },
+  { expression: 'ResourceAttributes.k8s.container.name', displayLabel: 'Container' },
+  { expression: 'ResourceAttributes.label.team', displayLabel: 'Team' },
+  { expression: 'ResourceAttributes.label.pod', displayLabel: 'Pod' },
+];
+
+const K8S_EVENTS_FILTERS: DefaultFilterEntry[] = [
+  { expression: 'ResourceAttributes.cloud', displayLabel: 'Cloud' },
+  { expression: 'SeverityText', displayLabel: 'Severity' },
+  { expression: 'ResourceAttributes.k8s.cluster.name', displayLabel: 'Cluster' },
+  { expression: 'ResourceAttributes.k8s.namespace.name', displayLabel: 'Namespace' },
+  { expression: 'LogAttributes.k8s.event.reason', displayLabel: 'Reason' },
+];
+
+const CES_FILTERS: DefaultFilterEntry[] = [
+  { expression: 'event_name', displayLabel: 'Event Name' },
+  { expression: 'event_type', displayLabel: 'Event Type' },
+  { expression: 'source', displayLabel: 'Source' },
+  { expression: 'status', displayLabel: 'Status' },
+  { expression: 'priority', displayLabel: 'Priority' },
+];
+
+const CC_LOGS_FILTERS: DefaultFilterEntry[] = [
+  { expression: 'ServiceName', displayLabel: 'Service' },
+  { expression: 'LogAttributes.user.email', displayLabel: 'User Email' },
+];
+
+const CC_TRACES_FILTERS: DefaultFilterEntry[] = [
+  { expression: 'ServiceName', displayLabel: 'Service' },
+  { expression: 'SpanKind', displayLabel: 'Span Kind' },
+  { expression: 'StatusCode', displayLabel: 'Status Code' },
+  { expression: 'SpanAttributes.user.email', displayLabel: 'User Email' },
+];
+
+// ─── Config map ───────────────────────────────────────────────────────────────
+// Key = exact source name as configured in Settings → Sources.
+// Add a "Source Name:Connection Name" key to override for a specific connection.
+//
+// How to add a new source:
+//
+// 'My Source': [
+//   { expression: 'ServiceName', displayLabel: 'Service' },
+//   { expression: 'ResourceAttributes.k8s.cluster.name', displayLabel: 'Cluster' },
+// ],
+//
+// Or reuse a shared filter set defined above:
+// 'My Source': LOGS_FILTERS,
+
 export const DEFAULT_FILTERS_CONFIG: Record<string, DefaultFilterEntry[]> = {
-  // ─── How to add a new source ────────────────────────────────────────────────
-  //
-  // Match any source named "K8s Logs" regardless of connection:
-  // 'K8s Logs': [
-  //   { expression: 'ServiceName', displayLabel: 'Service' },
-  //   { expression: 'SeverityText', displayLabel: 'Severity' },
-  //   { expression: 'ResourceAttributes.k8s.cluster.name', displayLabel: 'Cluster' },
-  //   { expression: 'ResourceAttributes.k8s.namespace.name', displayLabel: 'Namespace' },
-  //   { expression: 'ResourceAttributes.k8s.deployment.name', displayLabel: 'Deployment' },
-  //   { expression: 'ResourceAttributes.k8s.pod.name', displayLabel: 'Pod' },
-  // ],
-  //
-  // Override for "K8s Logs" on a specific connection (takes precedence over above):
-  // 'K8s Logs:prod-cluster': [
-  //   { expression: 'ServiceName', displayLabel: 'Service' },
-  //   { expression: 'ResourceAttributes.k8s.cluster.name', displayLabel: 'Cluster' },
-  //   { expression: 'ResourceAttributes.k8s.namespace.name', displayLabel: 'Namespace' },
-  // ],
-  //
-  // ─────────────────────────────────────────────────────────────────────────────
+  // Mum region
+  'Mum | Logs': LOGS_FILTERS,
+  'Mum | Traces': TRACES_FILTERS,
+  'Mum | K8s Events': K8S_EVENTS_FILTERS,
+  'Mum | CES': CES_FILTERS,
+  'Mum | CC Logs': CC_LOGS_FILTERS,
+  'Mum | CC Traces': CC_TRACES_FILTERS,
 
-  Logs: [
-    { expression: 'ResourceAttributes.cloud', displayLabel: 'Cloud' },
-    { expression: 'LogAttributes.log.iostream', displayLabel: 'IO Stream' },
-    { expression: 'SeverityText', displayLabel: 'Severity' },
-    { expression: 'ServiceName', displayLabel: 'Service' },
-    { expression: 'ResourceAttributes.k8s.cluster.name', displayLabel: 'Cluster' },
-    { expression: 'ResourceAttributes.k8s.namespace.name', displayLabel: 'Namespace' },
-    { expression: 'ResourceAttributes.k8s.container.name', displayLabel: 'Container' },
-    { expression: 'ResourceAttributes.label.team', displayLabel: 'Team' },
-    { expression: 'ResourceAttributes.label.pod', displayLabel: 'Pod' },
-  ],
-
-  Traces: [
-    { expression: 'ResourceAttributes.cloud', displayLabel: 'Cloud' },
-    { expression: 'ServiceName', displayLabel: 'Service' },
-    { expression: 'StatusCode', displayLabel: 'Status Code' },
-    { expression: 'SpanKind', displayLabel: 'Span Kind' },
-    { expression: 'ResourceAttributes.k8s.cluster.name', displayLabel: 'Cluster' },
-    { expression: 'ResourceAttributes.k8s.namespace.name', displayLabel: 'Namespace' },
-    { expression: 'ResourceAttributes.k8s.container.name', displayLabel: 'Container' },
-    { expression: 'ResourceAttributes.label.team', displayLabel: 'Team' },
-    { expression: 'ResourceAttributes.label.pod', displayLabel: 'Pod' },
-  ],
-
-  'K8s Events': [
-    { expression: 'ResourceAttributes.cloud', displayLabel: 'Cloud' },
-    { expression: 'SeverityText', displayLabel: 'Severity' },
-    { expression: 'ResourceAttributes.k8s.cluster.name', displayLabel: 'Cluster' },
-    { expression: 'ResourceAttributes.k8s.namespace.name', displayLabel: 'Namespace' },
-    { expression: 'LogAttributes.k8s.event.reason', displayLabel: 'Reason' },
-  ],
-
-  CES: [
-    { expression: 'event_name', displayLabel: 'Event Name' },
-    { expression: 'event_type', displayLabel: 'Event Type' },
-    { expression: 'source', displayLabel: 'Source' },
-    { expression: 'status', displayLabel: 'Status' },
-    { expression: 'priority', displayLabel: 'Priority' },
-  ],
-
-  'CC Logs': [
-    { expression: 'ServiceName', displayLabel: 'Service' },
-    { expression: 'LogAttributes.user.email', displayLabel: 'User Email' },
-  ],
-
-  'CC Traces': [
-    { expression: 'ServiceName', displayLabel: 'Service' },
-    { expression: 'SpanKind', displayLabel: 'Span Kind' },
-    { expression: 'StatusCode', displayLabel: 'Status Code' },
-    { expression: 'SpanAttributes.user.email', displayLabel: 'User Email' },
-  ],
+  // US region
+  'US | Logs': LOGS_FILTERS,
+  'US | K8s Events': K8S_EVENTS_FILTERS,
 };
