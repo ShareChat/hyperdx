@@ -11,7 +11,6 @@ import {
 import mongoose, { Schema } from 'mongoose';
 import z from 'zod';
 
-import { sourceCustomFields } from './sourceCustomizations';
 
 import { objectIdSchema } from '@/utils/zod';
 
@@ -99,7 +98,6 @@ const sourceBaseSchema = new Schema<MongooseSourceBase>(
         message: '{PATH} exceeds the limit of 10',
       },
     },
-    ...sourceCustomFields,
   },
   {
     discriminatorKey: 'kind',

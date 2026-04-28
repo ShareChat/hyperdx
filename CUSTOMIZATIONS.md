@@ -429,94 +429,107 @@ const DEFAULT_REFRESH_FREQUENCY = LIVE_TAIL_REFRESH_INTERVAL_MS;
 
 ### 9. Per-source default filter list with friendly display labels
 
+**Added**: 2026-04-28  
+**Last verified**: 2026-04-28  
+**Branch**: `abhiroop93/feat/hyperdx-upgrade`
+
 **Intent**: Allow each telemetry source to define an explicit curated list of
 fields shown in the left-hand filter panel on `/search`. Useful when multiple
 sources share the same `kind` (e.g. k8s logs, CF logs, k8s events are all
 `kind=log`) but need different filter sets. Each entry supports a user-friendly
-`Display Label` (e.g. `Cluster Name`) that is shown in the panel; hovering
-reveals the underlying SQL expression (e.g.
-`ResourceAttributes['k8s.cluster.name']`). When `defaultFilters` is configured
-on a source, the panel shows ONLY those fields (plus any currently-selected or
-personally/team-pinned fields). The existing "Show more fields" toggle still
-falls back to the full auto-detected heuristic.
+`displayLabel` (e.g. `Cluster`) that is shown in the panel; hovering reveals the
+underlying SQL expression. When a source is listed in the config, the panel shows
+ONLY those fields (plus any currently-selected or personally/team-pinned fields).
+The existing "Show more fields" toggle still falls back to the full auto-detected
+heuristic.
 
-**No new env vars** — configuration is stored per-source in MongoDB via the
-existing sources API.
+**No new env vars. No MongoDB changes. No SourceForm changes.**  
+Configuration lives entirely in a single TypeScript file that is edited once and
+compiled into the app image. This keeps the API/Mongo schema 100% upstream-clean
+and makes merge conflicts impossible on the backend.
 
-**Last verified**: 2026-04-28
+#### How to configure
 
-#### Per-file diff
-
-##### `packages/common-utils/src/types.ts`
-
-Add `DefaultFilterExpressionsSchema` next to
-`HighlightedAttributeExpressionsSchema`, and add `defaultFilters` to
-`BaseSourceSchema` so all per-kind schemas inherit it:
+Edit **`packages/app/src/defaultFiltersConfig.ts`** — this is the only file that
+needs to change when adding or updating filter lists:
 
 ```typescript
-const DefaultFilterExpressionsSchema = z.array(
-  z.object({
-    sqlExpression: z.string().min(1, 'Filter SQL Expression is required'),
-    displayLabel: z.string().optional(),
-    luceneExpression: z.string().optional(),
-  }),
-);
+export const DEFAULT_FILTERS_CONFIG: Record<string, DefaultFilterEntry[]> = {
+  // Match any source named "K8s Logs" on any connection:
+  'K8s Logs': [
+    { expression: 'ServiceName', displayLabel: 'Service' },
+    { expression: 'SeverityText', displayLabel: 'Severity' },
+    { expression: 'ResourceAttributes.k8s.cluster.name', displayLabel: 'Cluster' },
+    { expression: 'ResourceAttributes.k8s.namespace.name', displayLabel: 'Namespace' },
+    { expression: 'ResourceAttributes.k8s.deployment.name', displayLabel: 'Deployment' },
+    { expression: 'ResourceAttributes.k8s.pod.name', displayLabel: 'Pod' },
+  ],
 
-// In BaseSourceSchema:
-defaultFilters: DefaultFilterExpressionsSchema.optional(),
-```
+  // Override for "K8s Logs" on a specific connection (takes precedence):
+  'K8s Logs:prod-cluster': [
+    { expression: 'ServiceName', displayLabel: 'Service' },
+    { expression: 'ResourceAttributes.k8s.cluster.name', displayLabel: 'Cluster' },
+    { expression: 'ResourceAttributes.k8s.namespace.name', displayLabel: 'Namespace' },
+  ],
 
-##### `packages/app/src/components/Sources/SourceForm.tsx`
-
-Add `DefaultFilterRow` and `DefaultFiltersFormRow` (mirror
-`HighlightedAttributeRow` / `HighlightedAttributeExpressionsFormRow`). Render
-`<DefaultFiltersFormRow>` before the `<HighlightedAttributeExpressionsFormRow>`
-blocks in `LogTableModelForm` and `TraceTableModelForm`, and before the closing
-`</Stack>` (after a `<Divider />`) in `SessionTableModelForm` and
-`MetricTableModelForm`.
-
-##### `packages/app/src/components/DBSearchPageFilters.tsx`
-
-Four changes:
-
-1. Add `displayName?: string` to `FilterGroupProps` and destructure it in
-   `FilterGroup`. In the `<Tooltip>` / `<Text>` block, render
-   `displayName ?? name` as the visible label while `name` (the SQL expression)
-   is always the Tooltip label.
-
-2. Add `displayLabelMap` memo built from `source.defaultFilters`.
-
-3. Override `keysToFetch` to use the curated list when `source.defaultFilters`
-   is non-empty (and "Show more fields" is off). Union with `filterState` keys
-   and pinned fields so user state is never lost.
-
-4. Pass `displayName={displayLabelMap.get(facet.key)}` to each `<FilterGroup>`
-   in the `renderFacets` callback. Add `displayLabelMap` to the
-   `useCallback` dependency array.
-
-##### `packages/api/src/models/sourceCustomizations.ts` (new fork-only file)
-
-All fork-specific Mongoose schema fields live here. `source.ts` spreads this
-in via `...sourceCustomFields` — it is the **only touch to `source.ts`** and
-is trivially easy to re-apply after an upstream merge.
-
-```typescript
-export const sourceCustomFields: mongoose.SchemaDefinition = {
-  defaultFilters: { type: mongoose.Schema.Types.Array },
+  'CF Logs': [
+    { expression: 'ServiceName', displayLabel: 'Service' },
+    { expression: 'LogAttributes.ClientRequestHost', displayLabel: 'Host' },
+    { expression: 'LogAttributes.ClientCountry', displayLabel: 'Country' },
+  ],
 };
 ```
 
-##### `packages/api/src/models/source.ts`
+Key format:
+- `"Source Name"` — matches that source on any connection
+- `"Source Name:Connection Name"` — connection-specific override (looked up first;
+  falls back to the name-only key). Use the exact names from Settings → Sources /
+  Settings → Connections.
 
-Two-line touch (one import, one spread) — keep both when resolving upstream
-merge conflicts:
+`expression` uses Lucene dot-path syntax (first segment = column name, rest = map
+key, e.g. `ResourceAttributes.k8s.cluster.name`). Top-level columns are just the
+column name (e.g. `ServiceName`). The runtime converts these to the correct
+ClickHouse SQL form automatically (Map bracket syntax or JSON backtick syntax)
+using `mergePath` so no code change is needed when migrating column types.
 
-```typescript
-// add import at top:
-import { sourceCustomFields } from './sourceCustomizations';
+#### Per-file diff
 
-// spread into sourceBaseSchema fields object:
-...sourceCustomFields,
-```
+##### `packages/app/src/defaultFiltersConfig.ts` (new fork-only file)
+
+Exports `DefaultFilterEntry` type and `DEFAULT_FILTERS_CONFIG` map. This is the
+single file users edit. No other file needs to change to add or update a filter
+list.
+
+##### `packages/app/src/components/DBSearchPageFilters.tsx`
+
+Six changes — all additive, no upstream lines removed:
+
+1. **Import** `useConnections` from `@/connection` and `DEFAULT_FILTERS_CONFIG`
+   from `@/defaultFiltersConfig`.
+
+2. **`connectionName` memo** — resolves the current source's connection name by
+   matching `source.connection` (ObjectId) against `Connection.id` from
+   `useConnections()`. Used for the per-connection key lookup.
+
+3. **`luceneToSql` callback** — converts a Lucene dot-path to a ClickHouse SQL
+   expression. Splits on the first dot (left = column, right = map key), then
+   delegates to `mergePath` so Map vs JSON column handling is automatic.
+
+4. **`displayLabelMap` memo** — built from the curated entry list for the active
+   source. Indexes both the raw SQL key and the `toString(sqlKey)` form (used by
+   JSON columns in `shownFacets`) so display labels survive a column-type
+   migration. Lookup order: `"Source:Connection"` → `"Source"` → `[]`.
+
+5. **`keysToFetch` override** — when the active source has a curated list and
+   "Show more fields" is off, returns only those curated SQL paths unioned with
+   currently selected keys and all personally/team-pinned fields. Falls through
+   to the full existing heuristic when the list is empty or "Show more" is on.
+
+6. **`FilterGroup` / `FilterGroupProps`** — add optional `displayName?: string`.
+   When set, the visible `<Text>` renders `displayName`; the `<Tooltip>` label
+   always shows the raw `name` (SQL expression). Pass
+   `displayName={displayLabelMap.get(facet.key)}` at every `<FilterGroup>` call
+   site. The `Accordion.Item value`, `filterState`, pinning, and all analytics
+   keys stay keyed on `name` — only the visible label changes.
 
 ---

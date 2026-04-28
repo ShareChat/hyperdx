@@ -65,8 +65,10 @@ import {
   IS_ROOT_SPAN_COLUMN_NAME,
   usePinnedFilters,
 } from '@/searchFilters';
+import { useConnections } from '@/connection';
 import { useSource } from '@/source';
 import { mergePath, useLocalStorage } from '@/utils';
+import { DEFAULT_FILTERS_CONFIG } from '@/defaultFiltersConfig';
 
 import { FilterSettingsPanel } from './DBSearchPageFilters/FilterSettingsPopover';
 import { NestedFilterGroup } from './DBSearchPageFilters/NestedFilterGroup';
@@ -1143,6 +1145,12 @@ const DBSearchPageFiltersComponent = ({
   });
 
   const { data: source } = useSource({ id: sourceId });
+  const { data: connections } = useConnections();
+  const connectionName = useMemo(
+    () =>
+      connections?.find(c => c.id === source?.connection?.toString())?.name,
+    [connections, source?.connection],
+  );
   const { data: tableMetadata } = useTableMetadata(tcFromSource(source));
 
   useEffect(() => {
@@ -1158,28 +1166,57 @@ const DBSearchPageFiltersComponent = ({
 
   const [showMoreFields, setShowMoreFields] = useState(false);
 
+  // Convert a Lucene dot-path expression to the correct ClickHouse SQL expression.
+  // Splits on the first dot only: left = column, right = key/path.
+  // mergePath then applies the correct syntax for Map vs JSON columns automatically.
+  const luceneToSql = useCallback(
+    (expr: string): string => {
+      const trimmed = expr.trim();
+      const dot = trimmed.indexOf('.');
+      if (dot < 0) return trimmed; // top-level column, no conversion needed
+      const col = trimmed.slice(0, dot);
+      const key = trimmed.slice(dot + 1);
+      return mergePath([col, key], jsonColumns ?? []);
+    },
+    [jsonColumns],
+  );
+
   const displayLabelMap = useMemo(() => {
     const map = new Map<string, string>();
-    for (const f of source?.defaultFilters ?? []) {
+    const curated = source?.name
+      ? (DEFAULT_FILTERS_CONFIG[`${source.name}:${connectionName ?? ''}`] ??
+         DEFAULT_FILTERS_CONFIG[source.name] ??
+         [])
+      : [];
+    for (const f of curated) {
       if (f.displayLabel?.trim()) {
-        map.set(f.sqlExpression.trim(), f.displayLabel.trim());
+        const sqlKey = luceneToSql(f.expression);
+        const label = f.displayLabel.trim();
+        map.set(sqlKey, label);
+        // JSON columns get wrapped in toString() by shownFacets — index that
+        // form too so display labels survive a migration to native JSON columns.
+        map.set(`toString(${sqlKey})`, label);
       }
     }
     return map;
-  }, [source]);
+  }, [source, connectionName, luceneToSql]);
 
   const keysToFetch = useMemo(() => {
     if (!data) {
       return [];
     }
 
-    // When the source defines a curated filter list, use it as the allow-list.
-    // Always union with currently selected/pinned keys so user state never
-    // disappears, and respect the "Show more fields" escape hatch.
-    const curated = source?.defaultFilters ?? [];
+    // When the source has a curated filter list in DEFAULT_FILTERS_CONFIG,
+    // use it as the allow-list. Always union with currently selected/pinned
+    // keys so user state never disappears. Respect the "Show more fields" hatch.
+    const curated = source?.name
+      ? (DEFAULT_FILTERS_CONFIG[`${source.name}:${connectionName ?? ''}`] ??
+         DEFAULT_FILTERS_CONFIG[source.name] ??
+         [])
+      : [];
     if (curated.length > 0 && !showMoreFields) {
       const curatedPaths = curated
-        .map(f => f.sqlExpression.trim())
+        .map(f => luceneToSql(f.expression))
         .filter(Boolean);
       const extras = new Set<string>([
         ...Object.keys(filterState),
@@ -1234,7 +1271,9 @@ const DBSearchPageFiltersComponent = ({
     showMoreFields,
     isFieldPinned,
     isSharedFieldPinned,
-    source,
+    source?.name,
+    connectionName,
+    luceneToSql,
   ]);
 
   // Special case for live tail

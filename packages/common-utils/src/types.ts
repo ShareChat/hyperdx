@@ -1080,14 +1080,6 @@ const HighlightedAttributeExpressionsSchema = z.array(
   }),
 );
 
-const DefaultFilterExpressionsSchema = z.array(
-  z.object({
-    sqlExpression: z.string().min(1, 'Filter SQL Expression is required'),
-    displayLabel: z.string().optional(),
-    luceneExpression: z.string().optional(),
-  }),
-);
-
 export const BaseSourceSchema = z.object({
   id: z.string(),
   name: z.string().min(1, 'Name is required'),
@@ -1099,7 +1091,6 @@ export const BaseSourceSchema = z.object({
   }),
   querySettings: QuerySettingsSchema.optional(),
   timestampValueExpression: RequiredTimestampColumnSchema,
-  defaultFilters: DefaultFilterExpressionsSchema.optional(),
 });
 
 const AggregatedColumnConfigSchema = z
