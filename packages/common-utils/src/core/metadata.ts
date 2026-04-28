@@ -1328,6 +1328,7 @@ export type TableConnection = {
   tableName: string;
   connectionId: string;
   metricName?: string;
+  timestampValueExpression?: string;
 };
 
 export type TableConnectionChoice =
@@ -1355,6 +1356,7 @@ export function tcFromSource(source?: TSource): TableConnection {
     databaseName: source?.from?.databaseName ?? '',
     tableName: source?.from?.tableName ?? '',
     connectionId: source?.connection ?? '',
+    timestampValueExpression: source?.timestampValueExpression,
   };
 }
 

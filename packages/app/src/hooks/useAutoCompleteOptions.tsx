@@ -5,7 +5,7 @@ import {
 } from '@hyperdx/common-utils/dist/core/metadata';
 import { BuilderChartConfigWithDateRange } from '@hyperdx/common-utils/dist/types';
 
-import { AUTOCOMPLETE_DATE_RANGE_MS, AUTOCOMPLETE_MIN_CHARS, NOW } from '@/config';
+import { AUTOCOMPLETE_DATE_RANGE_MS, AUTOCOMPLETE_MIN_CHARS } from '@/config';
 import {
   useJsonColumns,
   useMultipleAllFields,
@@ -141,15 +141,16 @@ export function useAutoCompleteOptions(
         : null;
     // Escape single quotes to prevent SQL injection from the typed prefix
     const safePrefix = debouncedValuePrefix.replace(/'/g, "''");
-    return toArray(tableConnection).map(({ databaseName, tableName, connectionId }) => ({
+    const now = Date.now();
+    return toArray(tableConnection).map(({ databaseName, tableName, connectionId, timestampValueExpression }) => ({
       connection: connectionId,
       from: { databaseName, tableName },
-      timestampValueExpression: '',
+      timestampValueExpression: timestampValueExpression ?? '',
       select: '',
       // Push prefix filter into ClickHouse so we aren't limited to the
       // top-N values fetched without any value-level filtering
       where: fieldPath ? `${fieldPath} ILIKE '${safePrefix}%'` : '',
-      dateRange: [new Date(NOW - AUTOCOMPLETE_DATE_RANGE_MS), new Date(NOW)],
+      dateRange: [new Date(now - AUTOCOMPLETE_DATE_RANGE_MS), new Date(now)],
     }));
   }, [tableConnection, searchKeys, debouncedValuePrefix]);
 
