@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Accordion, Group, Text, Tooltip, UnstyledButton } from '@mantine/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
@@ -98,6 +98,17 @@ export const NestedFilterGroup = ({
     overscan: 10,
     getItemKey: index => childFilters[index]?.key ?? index,
   });
+
+  // Force remeasure after the Mantine accordion animation completes.
+  // When the panel opens, the scroll container mounts while the CSS animation
+  // is still running (clientHeight = 0), so the virtualizer initialises with
+  // 0 visible area and renders nothing. Calling measure() after the animation
+  // (Mantine default: 200ms) gives the virtualizer the correct container height.
+  useEffect(() => {
+    if (!isExpanded) return;
+    const id = setTimeout(() => rowVirtualizer.measure(), 200);
+    return () => clearTimeout(id);
+  }, [isExpanded, rowVirtualizer]);
 
   return (
     <Accordion

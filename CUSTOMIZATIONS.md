@@ -583,4 +583,21 @@ Six changes — all additive, no upstream lines removed:
    site. The `Accordion.Item value`, `filterState`, pinning, and all analytics
    keys stay keyed on `name` — only the visible label changes.
 
+##### `packages/app/src/components/DBSearchPageFilters/NestedFilterGroup.tsx`
+
+Fix virtualizer rendering nothing after the accordion reopens. The scroll
+container is conditionally mounted (`{isExpanded && ...}`), so when the panel
+opens it mounts during the Mantine accordion CSS animation (default 200 ms).
+At that moment `clientHeight = 0`, so the virtualizer initialises with zero
+visible area and renders no items. A `useEffect` calls `rowVirtualizer.measure()`
+after 200 ms to force remeasurement once the animation completes:
+
+```typescript
+useEffect(() => {
+  if (!isExpanded) return;
+  const id = setTimeout(() => rowVirtualizer.measure(), 200);
+  return () => clearTimeout(id);
+}, [isExpanded, rowVirtualizer]);
+```
+
 ---
