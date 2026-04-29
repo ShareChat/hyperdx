@@ -151,7 +151,7 @@ import {
 } from './utils/queryParsers';
 import api from './api';
 import { LOCAL_STORE_CONNECTIONS_KEY } from './connection';
-import useIsPrivilegedUser from './hooks/useIsPrivilegedUser';
+import { useIsPrivilegedUser } from './hooks/useIsPrivilegedUser';
 import { DBSearchPageAlertModal } from './DBSearchPageAlertModal';
 import { EditablePageName } from './EditablePageName';
 import { SearchConfig } from './types';
