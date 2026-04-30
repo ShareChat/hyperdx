@@ -31,11 +31,9 @@ export function useAutoCompleteOptions(
   {
     tableConnection,
     additionalSuggestions,
-    language,
   }: {
     tableConnection?: TableConnection | TableConnection[];
     additionalSuggestions?: string[];
-    language?: 'sql' | 'lucene';
   },
 ) {
   // Fetch and gather all field options
@@ -215,8 +213,5 @@ export function useAutoCompleteOptions(
     return output;
   }, [fieldCompleteOptions, keyVals, searchField, formatter]);
 
-  // SQL mode: Lucene-formatted suggestions are wrong for SQL syntax, so disable
-  // autocomplete entirely. Lucene mode gets the full field + value suggestion flow.
-  if (language === 'sql') return [];
   return keyValCompleteOptions;
 }

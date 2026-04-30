@@ -29,6 +29,53 @@ const IDENTIFIER_AFTER = new RegExp(`^${IDENTIFIER_CHAR}+`);
 const IDENTIFIER_VALID_FOR = new RegExp(`^${IDENTIFIER_CHAR}*$`);
 
 /**
+ * Returns true when the cursor is in a SQL value position — the user is typing
+ * a literal value, not a field/keyword identifier.
+ *
+ * Exported for unit testing.
+ */
+export function isInValueContext(
+  prefixText: string,
+  textBefore: string,
+): boolean {
+  // Inside a string literal: the prefix itself starts with a single quote
+  // (IDENTIFIER_CHAR includes `'`, so the matched prefix begins with the
+  // opening quote when the cursor is inside a quoted value).
+  if (prefixText.startsWith("'")) return true;
+
+  // Odd number of single quotes in textBefore → inside an unclosed string
+  // (catches `LIKE '%abc` where `%` ends the prefix but `'` is in textBefore).
+  if (((textBefore.match(/'/g) ?? []).length) % 2 === 1) return true;
+
+  // Right after a comparison or pattern operator (covers unquoted numeric values
+  // like `= 5`, `< 10`, and keyword operators like `LIKE`, `NOT ILIKE`).
+  if (
+    /(?:(?:\bNOT\s+)?(?:\bLIKE\b|\bILIKE\b)|=|!=|<>|<=|>=|<|>)\s*$/i.test(
+      textBefore,
+    )
+  )
+    return true;
+
+  // Inside an unclosed IN ( or NOT IN ( list (covers `IN (1, 2, 3`).
+  // Walk backwards tracking paren depth; if the first unmatched `(` is
+  // preceded by `IN`, we're in a value list. Function call parens are
+  // excluded because their textBefore ends with the function name, not `IN`.
+  let depth = 0;
+  for (let i = textBefore.length - 1; i >= 0; i--) {
+    const c = textBefore[i];
+    if (c === ')') depth++;
+    else if (c === '(') {
+      if (depth === 0) {
+        return /\bIN$/i.test(textBefore.slice(0, i).trimEnd());
+      }
+      depth--;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Creates a custom CodeMirror completion source for SQL identifiers (column names, table
  * names, functions, etc.) that inserts them verbatim, without quoting.
  */
@@ -42,6 +89,11 @@ export function createIdentifierCompletionSource(completions: Completion[]) {
       .sliceString(0, prefix?.from ?? context.pos)
       .trimEnd();
     if (/\bAS$/i.test(textBefore)) return null;
+
+    // Suppress suggestions when the cursor is inside a value position (after
+    // an operator, inside a string literal, or inside an IN list). Returning
+    // null tells CodeMirror to show no completions.
+    if (isInValueContext(prefix?.text ?? '', textBefore)) return null;
 
     // Look forward from cursor to include trailing identifier characters
     // (e.g. the `']` in `ResourceAttributes['host.']`) so accepting a

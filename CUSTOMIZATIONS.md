@@ -690,37 +690,74 @@ Added two tests: one verifying the switch behavior, one verifying explicit `incl
 
 ---
 
-### 12. Search bar autocomplete — suppress field suggestions in SQL value context
+### 12. SQL editor autocomplete — suppress suggestions when typing a value
 
-**Added**: 2026-04-29  
+**Added**: 2026-04-30  
 **Branch**: `abhiroop93/feat/hyperdx-upgrade`
 
-**Intent**: In SQL mode, typing `ServiceName = t` caused the autocomplete to show all field names containing `t` (e.g. `SeverityText`, `timestamp`, etc.) instead of nothing. This happened because `useAutoCompleteOptions` uses Lucene-specific field detection (`field:value` colon syntax). In SQL mode, after the user types an operator (`=`, `IN(`, `LIKE`, etc.), `getLastToken` returns the partial value (`t`), the Lucene detector finds no field, `searchField` stays null, and the hook fell back to returning all `fieldCompleteOptions`. The partial value then matched many field names via `String.includes`.
+**Intent**: In SQL mode, typing `ResourceAttributes['k8s.cluster.name']='test'`
+caused the CodeMirror autocomplete to show the full unfiltered field-name list on
+every keystroke inside the value. The root cause: SQL mode renders
+`SQLInlineEditorControlled` (CodeMirror 6), not `SearchInputV2`; the
+`useAutoCompleteOptions` hook is never called in SQL mode. The suggestions came
+from `createIdentifierCompletionSource` in `packages/app/src/components/SQLEditor/utils.ts`,
+which already had context-aware suppression for the `AS` keyword but nothing for
+value position.
 
-The fix adds an `isInSqlValueContext` guard: if the query ends with a SQL operator followed by an optional quote and partial word, field-name suggestions are suppressed (returns `[]`). The Lucene-based field detection (for `field:value` syntax) continues to work unchanged; this guard only fires in the SQL value position.
+The fix exports a new `isInValueContext(prefixText, textBefore)` helper and calls
+it inside `createIdentifierCompletionSource` — returning `null` (no completions)
+when the cursor is in a value position. Because `SQLInlineEditor` and `SQLEditor`
+share `createCodeMirrorSqlDialect`, the fix applies to both the inline search bar
+and the multiline chart-config editor.
+
+#### Detection rules (OR)
+
+1. **Inside a string literal**: `prefixText.startsWith("'")` (IDENTIFIER_CHAR
+   includes `'`, so typing inside a quoted value yields a prefix starting with
+   the opening quote) OR odd number of `'` in `textBefore` (catches `LIKE '%abc`
+   where `%` ends the prefix).
+2. **Right after a comparison/pattern operator**: `textBefore` matches
+   `/(?:(?:\bNOT\s+)?(?:\bLIKE\b|\bILIKE\b)|=|!=|<>|<=|>=|<|>)\s*$/i` —
+   covers `=`, `!=`, `<>`, `<`, `>`, `<=`, `>=`, `LIKE`, `ILIKE`,
+   `NOT LIKE`, `NOT ILIKE`.
+3. **Inside an unclosed `IN (` / `NOT IN (` list**: walk `textBefore` backwards
+   tracking paren depth; if the first unmatched `(` is preceded by `IN`
+   (case-insensitive), suppress. Function-call parens are excluded (their
+   textBefore ends with the function name, not `IN`).
 
 #### Files changed
 
-##### `packages/app/src/hooks/useAutoCompleteOptions.tsx`
+##### `packages/app/src/components/SQLEditor/utils.ts`
 
-Add helper before the hook:
+Export a new pure helper (also tested in `__tests__/utils.test.ts`):
 
 ```typescript
-function isInSqlValueContext(input: string): boolean {
-  return /(?:=|!=|<>|LIKE|ILIKE|IN\s*\()\s*'?\w*$/i.test(input.trimEnd());
+export function isInValueContext(prefixText: string, textBefore: string): boolean {
+  if (prefixText.startsWith("'")) return true;
+  if (((textBefore.match(/'/g) ?? []).length) % 2 === 1) return true;
+  if (/(?:(?:\bNOT\s+)?(?:\bLIKE\b|\bILIKE\b)|=|!=|<>|<=|>=|<|>)\s*$/i.test(textBefore)) return true;
+  let depth = 0;
+  for (let i = textBefore.length - 1; i >= 0; i--) {
+    const c = textBefore[i];
+    if (c === ')') depth++;
+    else if (c === '(') {
+      if (depth === 0) return /\bIN$/i.test(textBefore.slice(0, i).trimEnd());
+      depth--;
+    }
+  }
+  return false;
 }
 ```
 
-In `keyValCompleteOptions` memo, replace:
+In `createIdentifierCompletionSource`, add after the `AS` check:
 ```typescript
-if (!keyVals || !searchField) return fieldCompleteOptions;
+if (isInValueContext(prefix?.text ?? '', textBefore)) return null;
 ```
-with:
-```typescript
-if (!keyVals || !searchField) {
-  if (isInSqlValueContext(value)) return [];
-  return fieldCompleteOptions;
-}
-```
+
+##### `packages/app/src/components/SQLEditor/__tests__/utils.test.ts` (new)
+
+Unit tests for `isInValueContext` covering all three suppression rules and the
+non-suppression cases (field names after `AND`, `OR`, `WHERE`, first token,
+function call args).
 
 ---
