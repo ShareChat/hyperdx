@@ -169,14 +169,13 @@ export function useAutoCompleteOptions(
   const keyValCompleteOptions = useMemo<
     { value: string; label: string }[]
   >(() => {
-    if (!keyVals || !searchField) {
-      // Suppress field-name suggestions when the user is clearly typing a SQL
-      // value (query ends with an operator like `= `, `IN (`, etc.).
-      // Without this guard the Lucene-only field detector returns null, causing
-      // the fallback to spill all field names into the dropdown on every keystroke.
-      if (isInSqlValueContext(value)) return [];
-      return fieldCompleteOptions;
-    }
+    // Suppress ALL suggestions when typing a SQL value, regardless of searchField
+    // state. Lucene field detection may still have searchField set (from when the
+    // user typed the field name), so the guard must fire unconditionally — not
+    // only inside the !searchField branch.
+    if (isInSqlValueContext(value)) return [];
+
+    if (!keyVals || !searchField) return fieldCompleteOptions;
     const output = // TODO: Fix this hacky type assertion caused by bug in HDX-1548
       (
         keyVals as unknown as {
