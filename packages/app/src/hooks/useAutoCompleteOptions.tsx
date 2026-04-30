@@ -25,6 +25,13 @@ export interface ILanguageFormatter {
   formatKeyValPair: (key: string, value: string) => string;
 }
 
+// Returns true when the query ends with a SQL operator + partial value, meaning
+// the user is typing a value rather than a field name.
+// Matches patterns like: `= t`, `= 'test`, `!= 'foo`, `IN ('bar`, `LIKE 'baz`.
+function isInSqlValueContext(input: string): boolean {
+  return /(?:=|!=|<>|LIKE|ILIKE|IN\s*\()\s*'?\w*$/i.test(input.trimEnd());
+}
+
 export function useAutoCompleteOptions(
   formatter: ILanguageFormatter,
   value: string,
@@ -162,7 +169,14 @@ export function useAutoCompleteOptions(
   const keyValCompleteOptions = useMemo<
     { value: string; label: string }[]
   >(() => {
-    if (!keyVals || !searchField) return fieldCompleteOptions;
+    if (!keyVals || !searchField) {
+      // Suppress field-name suggestions when the user is clearly typing a SQL
+      // value (query ends with an operator like `= `, `IN (`, etc.).
+      // Without this guard the Lucene-only field detector returns null, causing
+      // the fallback to spill all field names into the dropdown on every keystroke.
+      if (isInSqlValueContext(value)) return [];
+      return fieldCompleteOptions;
+    }
     const output = // TODO: Fix this hacky type assertion caused by bug in HDX-1548
       (
         keyVals as unknown as {

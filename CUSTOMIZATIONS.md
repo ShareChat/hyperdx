@@ -689,3 +689,38 @@ if (draft[property].included.has(value)) {
 Added two tests: one verifying the switch behavior, one verifying explicit `include` action still appends.
 
 ---
+
+### 12. Search bar autocomplete — suppress field suggestions in SQL value context
+
+**Added**: 2026-04-29  
+**Branch**: `abhiroop93/feat/hyperdx-upgrade`
+
+**Intent**: In SQL mode, typing `ServiceName = t` caused the autocomplete to show all field names containing `t` (e.g. `SeverityText`, `timestamp`, etc.) instead of nothing. This happened because `useAutoCompleteOptions` uses Lucene-specific field detection (`field:value` colon syntax). In SQL mode, after the user types an operator (`=`, `IN(`, `LIKE`, etc.), `getLastToken` returns the partial value (`t`), the Lucene detector finds no field, `searchField` stays null, and the hook fell back to returning all `fieldCompleteOptions`. The partial value then matched many field names via `String.includes`.
+
+The fix adds an `isInSqlValueContext` guard: if the query ends with a SQL operator followed by an optional quote and partial word, field-name suggestions are suppressed (returns `[]`). The Lucene-based field detection (for `field:value` syntax) continues to work unchanged; this guard only fires in the SQL value position.
+
+#### Files changed
+
+##### `packages/app/src/hooks/useAutoCompleteOptions.tsx`
+
+Add helper before the hook:
+
+```typescript
+function isInSqlValueContext(input: string): boolean {
+  return /(?:=|!=|<>|LIKE|ILIKE|IN\s*\()\s*'?\w*$/i.test(input.trimEnd());
+}
+```
+
+In `keyValCompleteOptions` memo, replace:
+```typescript
+if (!keyVals || !searchField) return fieldCompleteOptions;
+```
+with:
+```typescript
+if (!keyVals || !searchField) {
+  if (isInSqlValueContext(value)) return [];
+  return fieldCompleteOptions;
+}
+```
+
+---
