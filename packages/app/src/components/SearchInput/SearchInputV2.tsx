@@ -73,6 +73,7 @@ export default function SearchInputV2({
     {
       tableConnection: tableConnection ? tableConnection : tableConnections,
       additionalSuggestions,
+      language,
     },
   );
 

@@ -25,22 +25,17 @@ export interface ILanguageFormatter {
   formatKeyValPair: (key: string, value: string) => string;
 }
 
-// Returns true when the query ends with a SQL operator + partial value, meaning
-// the user is typing a value rather than a field name.
-// Matches patterns like: `= t`, `= 'test`, `!= 'foo`, `IN ('bar`, `LIKE 'baz`.
-function isInSqlValueContext(input: string): boolean {
-  return /(?:=|!=|<>|LIKE|ILIKE|IN\s*\()\s*'?\w*$/i.test(input.trimEnd());
-}
-
 export function useAutoCompleteOptions(
   formatter: ILanguageFormatter,
   value: string,
   {
     tableConnection,
     additionalSuggestions,
+    language,
   }: {
     tableConnection?: TableConnection | TableConnection[];
     additionalSuggestions?: string[];
+    language?: 'sql' | 'lucene';
   },
 ) {
   // Fetch and gather all field options
@@ -169,12 +164,6 @@ export function useAutoCompleteOptions(
   const keyValCompleteOptions = useMemo<
     { value: string; label: string }[]
   >(() => {
-    // Suppress ALL suggestions when typing a SQL value, regardless of searchField
-    // state. Lucene field detection may still have searchField set (from when the
-    // user typed the field name), so the guard must fire unconditionally — not
-    // only inside the !searchField branch.
-    if (isInSqlValueContext(value)) return [];
-
     if (!keyVals || !searchField) return fieldCompleteOptions;
     const output = // TODO: Fix this hacky type assertion caused by bug in HDX-1548
       (
@@ -226,9 +215,8 @@ export function useAutoCompleteOptions(
     return output;
   }, [fieldCompleteOptions, keyVals, searchField, formatter]);
 
-  // When a field is detected and values are loaded, keyValCompleteOptions contains
-  // only the fetched values. When no field is detected, it falls back to
-  // fieldCompleteOptions. Returning it directly prevents field names from leaking
-  // into the dropdown while the user is completing a value (e.g. ServiceName:"user").
+  // SQL mode: Lucene-formatted suggestions are wrong for SQL syntax, so disable
+  // autocomplete entirely. Lucene mode gets the full field + value suggestion flow.
+  if (language === 'sql') return [];
   return keyValCompleteOptions;
 }
