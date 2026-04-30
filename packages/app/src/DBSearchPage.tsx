@@ -100,6 +100,7 @@ import { SQLInlineEditorControlled } from '@/components/SQLEditor/SQLInlineEdito
 import { Tags } from '@/components/Tags';
 import { TimePicker } from '@/components/TimePicker';
 import {
+  AUTOCOMPLETE_DATE_RANGE_MS,
   IS_LIVE_TAIL_ENABLED,
   IS_LOCAL_MODE,
   LIVE_TAIL_REFRESH_INTERVAL_MS,
@@ -1565,9 +1566,13 @@ export function DBSearchPage() {
   );
 
   const filtersChartConfig = useMemo<BuilderChartConfigWithDateRange>(() => {
+    const [rangeStart, rangeEnd] = searchedTimeRange;
+    const cappedStart = new Date(
+      Math.max(rangeStart.getTime(), rangeEnd.getTime() - AUTOCOMPLETE_DATE_RANGE_MS),
+    );
     const overrides = {
       orderBy: undefined,
-      dateRange: searchedTimeRange,
+      dateRange: [cappedStart, rangeEnd] as [Date, Date],
       with: aliasWith,
     } as const;
     return chartConfig

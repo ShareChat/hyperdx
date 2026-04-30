@@ -809,6 +809,40 @@ describe('searchFilters', () => {
       });
     });
 
+    it('clicking a different value replaces the existing selection (switch behavior)', () => {
+      const { result } = renderHook(() =>
+        useSearchPageFilterState({
+          searchQuery: [{ type: 'sql', condition: `service IN ('user-entity-service')` }],
+          onFilterChange,
+        }),
+      );
+
+      act(() => {
+        result.current.setFilterValue('service', 'tag-entity-service'); // switch, not append
+      });
+
+      expect(onFilterChange).toHaveBeenCalledWith([
+        { type: 'sql', condition: `service IN ('tag-entity-service')` },
+      ]);
+    });
+
+    it('explicit include action always appends even when values exist', () => {
+      const { result } = renderHook(() =>
+        useSearchPageFilterState({
+          searchQuery: [{ type: 'sql', condition: `service IN ('user-entity-service')` }],
+          onFilterChange,
+        }),
+      );
+
+      act(() => {
+        result.current.setFilterValue('service', 'tag-entity-service', 'include');
+      });
+
+      expect(onFilterChange).toHaveBeenCalledWith([
+        { type: 'sql', condition: `service IN ('user-entity-service', 'tag-entity-service')` },
+      ]);
+    });
+
     it('should clear excluded values when using only action', () => {
       const { result } = renderHook(() =>
         useSearchPageFilterState({

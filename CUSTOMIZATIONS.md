@@ -583,14 +583,27 @@ Six changes — all additive, no upstream lines removed:
    site. The `Accordion.Item value`, `filterState`, pinning, and all analytics
    keys stay keyed on `name` — only the visible label changes.
 
+7. **`NestedFilterGroup` displayLabelMap** — pass `displayLabelMap={displayLabelMap}`
+   to `NestedFilterGroup` so aliases apply to grouped (nested) fields like
+   `ResourceAttributes.*`. Without this, display labels were silently dropped for
+   any field that gets rendered via `NestedFilterGroup` instead of flat `FilterGroup`.
+
 ##### `packages/app/src/components/DBSearchPageFilters/NestedFilterGroup.tsx`
 
-Fix virtualizer rendering nothing after the accordion reopens. The scroll
+Two changes:
+
+1. **Virtualizer fix** — Fix virtualizer rendering nothing after the accordion reopens. The scroll
 container is conditionally mounted (`{isExpanded && ...}`), so when the panel
 opens it mounts during the Mantine accordion CSS animation (default 200 ms).
 At that moment `clientHeight = 0`, so the virtualizer initialises with zero
 visible area and renders no items. A `useEffect` calls `rowVirtualizer.measure()`
 after 200 ms to force remeasurement once the animation completes:
+
+2. **`displayLabelMap` prop** — add optional `displayLabelMap?: Map<string, string>` to
+`NestedFilterGroupProps`. When rendering each child `FilterGroup`, use
+`displayLabelMap?.get(child.key) ?? child.propertyPath` as `name` so that
+configured `displayLabel` aliases apply to nested `ResourceAttributes.*` fields too.
+(Previously the child used only `child.propertyPath` with no alias lookup.)
 
 ```typescript
 useEffect(() => {
@@ -599,5 +612,80 @@ useEffect(() => {
   return () => clearTimeout(id);
 }, [isExpanded, rowVirtualizer]);
 ```
+
+---
+
+### 10. Left-side filters — cap dateRange to autocomplete window
+
+**Added**: 2026-04-29  
+**Branch**: `abhiroop93/feat/hyperdx-upgrade`
+
+**Intent**: The left-side filter panel's facet queries used the user's full selected time range (e.g. "Past 7 days") to populate field values. For long ranges this is a very expensive ClickHouse scan, since every filter group fires its own query across the full range. The autocomplete feature already uses a fixed `AUTOCOMPLETE_DATE_RANGE_MS` window (default 1 hour) ending at the range end. Aligning the filters to the same cap makes both features consistent and keeps filter scans cheap regardless of how wide the user's search window is.
+
+The cap is applied as `max(rangeStart, rangeEnd - AUTOCOMPLETE_DATE_RANGE_MS)`, so the filter always queries the most recent portion of the selected range. If the user's selected range is already shorter than `AUTOCOMPLETE_DATE_RANGE_MS`, no change occurs.
+
+#### Files changed
+
+##### `packages/app/src/DBSearchPage.tsx`
+
+In `filtersChartConfig` memo, replace `dateRange: searchedTimeRange` with a capped dateRange:
+
+```typescript
+const [rangeStart, rangeEnd] = searchedTimeRange;
+const cappedStart = new Date(
+  Math.max(rangeStart.getTime(), rangeEnd.getTime() - AUTOCOMPLETE_DATE_RANGE_MS),
+);
+const overrides = {
+  orderBy: undefined,
+  dateRange: [cappedStart, rangeEnd] as [Date, Date],
+  with: aliasWith,
+} as const;
+```
+
+Also import `AUTOCOMPLETE_DATE_RANGE_MS` from `@/config`.
+
+---
+
+### 11. Left-side filters — exclusive single-select toggle behavior
+
+**Added**: 2026-04-29  
+**Branch**: `abhiroop93/feat/hyperdx-upgrade`
+
+**Intent**: Clicking a value in a filter group was additive (toggle): clicking `user-entity-service` then `tag-entity-service` would include BOTH in the filter, resulting in an accumulating multi-select that felt like a bug when navigating between services. The expected behavior is "switch to this" — clicking a different value replaces the existing selection.
+
+The fix changes the default (no-action) toggle in `setFilterValue`:
+- Click already-selected value → deselect (unchanged)
+- Click value when nothing is selected → select (unchanged)
+- Click value when a **different** value is already selected → **replace** (was: append)
+
+Callers that explicitly want additive multi-select pass `action='include'`, which always appends regardless of existing state. This preserves the "Add filter" behavior from table-row popovers (`DBRowTableFieldWithPopover`, `PropertyComparisonChart`).
+
+#### Files changed
+
+##### `packages/app/src/searchFilters.tsx`
+
+In `setFilterValue`, handle `action === 'include'` explicitly (always additive), then change the default toggle branch:
+
+```typescript
+if (action === 'include') {
+  draft[property].excluded.delete(value);
+  draft[property].included.add(value);
+  return;
+}
+
+// Regular toggle
+draft[property].excluded.delete(value);
+if (draft[property].included.has(value)) {
+  draft[property].included.delete(value);
+} else if (draft[property].included.size > 0) {
+  draft[property].included = new Set([value]); // replace
+} else {
+  draft[property].included.add(value);
+}
+```
+
+##### `packages/app/src/__tests__/searchFilters.test.ts`
+
+Added two tests: one verifying the switch behavior, one verifying explicit `include` action still appends.
 
 ---

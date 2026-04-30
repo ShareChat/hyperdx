@@ -463,10 +463,25 @@ export const useSearchPageFilterState = ({
             return;
           }
 
-          // Regular toggle (include)
+          if (action === 'include') {
+            // Explicit additive include (e.g. from row-level "Add filter" buttons).
+            // Always appends without replacing existing selections.
+            draft[property].excluded.delete(value);
+            draft[property].included.add(value);
+            return;
+          }
+
+          // Regular toggle (include).
+          // If the value is already selected, deselect it.
+          // If a different value is already selected, switch to the new value
+          // exclusively (replace) so repeated clicks navigate rather than
+          // accumulate. Callers that want additive multi-select should pass
+          // action='include' explicitly.
           draft[property].excluded.delete(value);
           if (draft[property].included.has(value)) {
             draft[property].included.delete(value);
+          } else if (draft[property].included.size > 0) {
+            draft[property].included = new Set([value]);
           } else {
             draft[property].included.add(value);
           }

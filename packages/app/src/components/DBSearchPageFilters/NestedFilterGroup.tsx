@@ -38,6 +38,7 @@ type NestedFilterGroupProps = {
   'data-testid'?: string;
   chartConfig: any; // Using any to avoid importing ChartConfigWithDateRange
   isLive?: boolean;
+  displayLabelMap?: Map<string, string>;
 };
 
 const VIRTUAL_ITEM_HEIGHT_ESTIMATE = 26;
@@ -69,6 +70,7 @@ export const NestedFilterGroup = ({
   'data-testid': dataTestId,
   chartConfig,
   isLive,
+  displayLabelMap,
 }: NestedFilterGroupProps) => {
   const selectedValues: FilterState = useMemo(
     () => _selectedValues ?? {},
@@ -145,9 +147,6 @@ export const NestedFilterGroup = ({
                   <Text size="xs" fw="500" truncate="end">
                     {name}
                   </Text>
-                  <Text size="xs" c="dimmed">
-                    {`{${childFilters.length}}`}
-                  </Text>
                 </Group>
               </Tooltip>
             </Accordion.Control>
@@ -214,7 +213,7 @@ export const NestedFilterGroup = ({
                           >
                             <FilterGroup
                               data-testid={`nested-filter-group-${child.key}`}
-                              name={child.propertyPath}
+                              name={displayLabelMap?.get(child.key) ?? child.propertyPath}
                               distributionKey={child.key}
                               options={child.value.map(value => ({
                                 value: value,

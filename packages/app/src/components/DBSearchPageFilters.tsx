@@ -1680,6 +1680,7 @@ const DBSearchPageFiltersComponent = ({
               }
               chartConfig={chartConfig}
               isLive={isLive}
+              displayLabelMap={displayLabelMap}
             />
           ))}
           {nonGrouped.map(facet => (
