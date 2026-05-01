@@ -213,7 +213,8 @@ export const NestedFilterGroup = ({
                           >
                             <FilterGroup
                               data-testid={`nested-filter-group-${child.key}`}
-                              name={displayLabelMap?.get(child.key) ?? child.propertyPath}
+                              name={child.propertyPath}
+                              displayName={displayLabelMap?.get(child.key) ?? child.propertyPath}
                               distributionKey={child.key}
                               options={child.value.map(value => ({
                                 value: value,

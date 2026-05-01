@@ -577,16 +577,21 @@ Six changes — all additive, no upstream lines removed:
    to the full existing heuristic when the list is empty or "Show more" is on.
 
 6. **`FilterGroup` / `FilterGroupProps`** — add optional `displayName?: string`.
-   When set, the visible `<Text>` renders `displayName` and the `<Tooltip>` label
-   also shows `displayName` (falling back to `name` when unset). Pass
+   When set, the visible `<Text>` renders `displayName`; the `<Tooltip>` label
+   always shows the raw `name` (SQL expression) so hovering reveals the actual
+   field name (e.g. "ServiceName" for a filter labelled "Service"). Pass
    `displayName={displayLabelMap.get(facet.key)}` at every `<FilterGroup>` call
    site. The `Accordion.Item value`, `filterState`, pinning, and all analytics
-   keys stay keyed on `name` — only the visible and hover labels change.
+   keys stay keyed on `name` — only the visible label changes.
 
 7. **`NestedFilterGroup` displayLabelMap** — pass `displayLabelMap={displayLabelMap}`
    to `NestedFilterGroup` so aliases apply to grouped (nested) fields like
    `ResourceAttributes.*`. Without this, display labels were silently dropped for
    any field that gets rendered via `NestedFilterGroup` instead of flat `FilterGroup`.
+   Each child `FilterGroup` receives `name={child.propertyPath}` (the raw SQL path,
+   e.g. `ResourceAttributes.cloud`) for the tooltip and internal keys, and
+   `displayName={displayLabelMap?.get(child.key) ?? child.propertyPath}` for the
+   visible label.
 
 ##### `packages/app/src/components/DBSearchPageFilters/NestedFilterGroup.tsx`
 
