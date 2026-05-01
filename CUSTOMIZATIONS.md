@@ -577,11 +577,11 @@ Six changes — all additive, no upstream lines removed:
    to the full existing heuristic when the list is empty or "Show more" is on.
 
 6. **`FilterGroup` / `FilterGroupProps`** — add optional `displayName?: string`.
-   When set, the visible `<Text>` renders `displayName`; the `<Tooltip>` label
-   always shows the raw `name` (SQL expression). Pass
+   When set, the visible `<Text>` renders `displayName` and the `<Tooltip>` label
+   also shows `displayName` (falling back to `name` when unset). Pass
    `displayName={displayLabelMap.get(facet.key)}` at every `<FilterGroup>` call
    site. The `Accordion.Item value`, `filterState`, pinning, and all analytics
-   keys stay keyed on `name` — only the visible label changes.
+   keys stay keyed on `name` — only the visible and hover labels change.
 
 7. **`NestedFilterGroup` displayLabelMap** — pass `displayLabelMap={displayLabelMap}`
    to `NestedFilterGroup` so aliases apply to grouped (nested) fields like

@@ -967,10 +967,8 @@ export const FilterGroup = ({
               className={hasOptions ? '' : 'opacity-50'}
             >
               <Tooltip
-                openDelay={
-                  displayName ? 0 : name.length > 26 ? 0 : 1500
-                }
-                label={name}
+                openDelay={name.length > 26 ? 0 : 1500}
+                label={displayName ?? name}
                 position="top"
                 withArrow
                 fz="xxs"
