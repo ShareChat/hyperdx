@@ -381,7 +381,14 @@ With `OTEL_LOG_LEVEL=debug`, the SDK also logs each export attempt and any HTTP 
 
 #### File changed
 
-`packages/app/src/instrumentation.ts` — see git diff.
+`packages/app/instrumentation.ts` — see git diff.
+
+**Why at the package root, not `src/`?** Next.js looks for
+`instrumentation.{ts,js}` next to the router directory (`pages/` or
+`app/`). Because `pages/` lives at `packages/app/pages/`, the
+instrumentation file must also live at `packages/app/instrumentation.ts`.
+Moving it under `src/` causes Next.js to silently ignore it — no build
+error, no warning, just missing from `.next/server/`.
 
 ---
 
