@@ -361,8 +361,23 @@ are needed to `SourceSelect.tsx`.
 
 | Variable | Default | Description |
 |---|---|---|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | Base OTLP HTTP endpoint. Telemetry disabled if unset. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | Base OTLP HTTP endpoint (SDK appends `/v1/traces`). Telemetry disabled if unset. |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | — | Per-signal override (full URL including `/v1/traces`). Takes priority over base. |
+| `NEXT_PUBLIC_OTEL_SERVICE_NAME` | `hdx-oss-dev-app` | Reported `service.name` resource attribute. |
 | `HDX_EXPORTER_ENABLED` | `'true'` | Set to `'false'` to disable all self-telemetry. |
+| `OTEL_LOG_LEVEL` | `info` | Set to `debug` to surface SDK-internal export attempts and failures in stdout. |
+
+#### Startup logs
+
+On pod start, grep for `[hdx-otel]` to see initialization state:
+
+- `[hdx-otel] starting SDK (service=..., endpoint=...)` — SDK is initializing
+- `[hdx-otel] SDK started` — SDK initialized successfully
+- `[hdx-otel] SDK start failed <err>` — synchronous init error
+- `[hdx-otel] no OTLP endpoint set; tracing disabled` — no endpoint env var
+- `[hdx-otel] disabled via HDX_EXPORTER_ENABLED=false` — explicitly disabled
+
+With `OTEL_LOG_LEVEL=debug`, the SDK also logs each export attempt and any HTTP errors.
 
 #### File changed
 
