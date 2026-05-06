@@ -1,5 +1,5 @@
 import { Connection } from '@hyperdx/common-utils/dist/types';
-import { setTraceAttributes } from '@hyperdx/node-opentelemetry';
+import { trace } from '@opentelemetry/api';
 import type { NextFunction, Request, Response } from 'express';
 import { serializeError } from 'serialize-error';
 
@@ -28,6 +28,11 @@ declare module 'express-session' {
 
 export function redirectToDashboard(req: Request, res: Response) {
   if (req?.user?.team) {
+    trace.getActiveSpan()?.setAttributes({
+      userId: req.user._id.toString(),
+      userEmail: req.user.email,
+      teamId: req.user.team.toString(),
+    });
     return res.redirect(`${config.FRONTEND_URL}/search`);
   } else {
     logger.error(
@@ -108,9 +113,10 @@ export function isUserAuthenticated(
 
   if (req.isAuthenticated()) {
     // set user id as trace attribute
-    setTraceAttributes({
-      userId: req.user?._id.toString(),
-      userEmail: req.user?.email,
+    trace.getActiveSpan()?.setAttributes({
+      userId: req.user?._id.toString() ?? '',
+      userEmail: req.user?.email ?? '',
+      teamId: req.user?.team?.toString() ?? '',
     });
 
     return next();

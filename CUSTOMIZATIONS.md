@@ -392,6 +392,26 @@ error, no warning, just missing from `.next/server/`.
 
 ---
 
+### 5b. API span user tagging — login flows
+
+**Added**: 2026-05-05  
+**Branch**: `abhiroop93/feat/hyperdx-upgrade`
+
+**Intent**: Login spans (`POST /login/password`, `GET /auth/google/callback`, `POST /team/setup/:token`) previously had no user identity attached because they bypass `isUserAuthenticated`. Tags `userId`, `userEmail`, `teamId` on the active HTTP span in both `redirectToDashboard` (login flows) and `isUserAuthenticated` (all authenticated requests).
+
+**File changed**: `packages/api/src/middleware/auth.ts`
+
+**Implementation note**: Originally used `setTraceAttributes` from `@hyperdx/node-opentelemetry`, but that helper is a no-op unless `HYPERDX_API_KEY` or `OTEL_EXPORTER_OTLP_HEADERS` is set (the `HyperDXSpanProcessor` that flushes the context map is only registered with those present). Replaced with `trace.getActiveSpan()?.setAttributes(...)` from `@opentelemetry/api`, which writes directly to the active HTTP span and works with any SDK configuration.
+
+**Container env required** for API traces to flow at all:
+```
+OTEL_SERVICE_NAME=hdx-oss-api
+OTEL_EXPORTER_OTLP_HEADERS=<any non-empty value to init HyperDX SDK>
+```
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is already set for the app and applies to the API process too.
+
+---
+
 ### 6. Google SSO — domain-based auto-join
 
 **Added**: 2026-04-27  
